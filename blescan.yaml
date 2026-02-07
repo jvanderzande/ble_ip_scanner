@@ -13,13 +13,15 @@ services:
       # MQTT_User: ''           # optional '' for both User&Password means no security
       # MQTT_Password: ''       # optional
       # MQTT_Topic : 'BLE_scan' # optional defaults to BTE_scan resulting in mqtt topic: BLE_scan/hostnameserver
+      # DMQTT_Topic : 'domoticz/in' # optional defaults to domoticz/in when idx is provive in device table
       # MQTT_Retain : false     # optional defaults to false
       # Required: Define your devices here
       ScanDevices: |
             {
               "2F234454CF6D4A0FADF2F4911BA9ABC1": {
                 "name": "Name_mine",
-                "host": "s24-Mine"
+                "host": "s24-Mine",
+                "idx": 123
               },
               "2F234454CF6D4A0FADF2F4911BA9ABC2": {
                 "name": "Name_hers",

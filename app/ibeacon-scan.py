@@ -35,9 +35,8 @@ mqtt_user = os.getenv('MQTT_User', os.getenv('MQTT_USER', ''))
 mqtt_password = os.getenv('MQTT_Password', os.getenv('MQTT_PASSWORD', ''))
 
 mqtttopic = os.getenv('MQTT_Topic', os.getenv('MQTT_TOPIC', 'BTE_scan'))
-mqtttopic = mqtttopic + "/" + pihost
 mqttretain = os.getenv('MQTT_Retain', os.getenv('MQTT_RETAIN', 'false')).lower() == 'true'
-
+dmqtttopic = os.getenv('D_MQTT_Topic', os.getenv('D_MQTT_TOPIC', 'domoticz/in'))
 
 # Telephones config both BLE & HOSTNAME/IP
 # If a `ScanDevices` environment variable is provided (JSON), use it; otherwise fall back to built-in defaults.
@@ -53,6 +52,7 @@ if ScanDevices_Env:
         for uuid, meta in parsed.items():
             TelBLE[uuid] = {
                 'name': meta.get('name', ''),
+                'idx': int(meta.get('idx', 0)),
                 'state': False,
                 'lastcheck': initdate,
                 'lastupdate': initdate,
@@ -78,21 +78,32 @@ def measureDistance(txPower, rssi):
         return (0.89976) * pow(ratio, 7.7095) + 0.111
 
 
-def updatedevice(action, name, state, type="BLE", rssi=0):
+def updatedevice(action, name, state, type="BLE", rssi=0, idx=0):
     mDist = 0
     if type == "BLE":
         mDist = round(measureDistance(-59, rssi), 1)
-    sendmqttmsg(
-        mqtttopic,
-        '{'
-        + '"action":"' + action + '"'
-        + ',"type":"' + type + '"'
-        + ',"state":"' + state + '"'
-        + ',"rssi":' + str(rssi) + ''
-        + ',"dist":' + str(mDist) + ''
-        + ',"name": "' + name + '"'
-        + "}"
-    )
+
+    if idx > 0:
+        sendmqttmsg(
+            dmqtttopic,
+            '{'
+            + '"command": "switchlight"'
+            + ',"idx":' + str(idx)
+            + ',"switchcmd": "' + state + '"'
+            + "}"
+        )
+    else:
+        sendmqttmsg(
+            mqtttopic + "/" + pihost,
+            '{'
+            + '"action":"' + action + '"'
+            + ',"type":"' + type + '"'
+            + ',"state":"' + state + '"'
+            + ',"rssi":' + str(rssi) + ''
+            + ',"dist":' + str(mDist) + ''
+            + ',"name": "' + name + '"'
+            + "}"
+        )
 
 def sendmqttmsg(topic, payload):
     if debug: print(formattednow(), "Publishing " + str(payload) + " to topic: " + topic)
@@ -131,14 +142,14 @@ def thread_backgroundprocess():
                 urec["lastcheck"] = datetime.datetime.now()
                 urec["lastupdate"] = datetime.datetime.now()
                 print(formattednow(),urec["name"] + " Changed to Offline.")
-                updatedevice("c", urec["name"], "Off", "", 0)
+                updatedevice("c", urec["name"], "Off", "", 0, urec["idx"])
 
             # send update each minute as lifeline
             if (datetime.datetime.now() - urec["lastupdate"]).total_seconds() > 58:
                 ### Send Update
                 urec["lastupdate"] = datetime.datetime.now()
                 State = "On" if urec["state"] else "Off"
-                updatedevice("u", urec["name"], State, urec["lasttype"], urec["rssi"])
+                updatedevice("u", urec["name"], State, urec["lasttype"], urec["rssi"], urec["idx"])
                 pType = (" LastType:" + str(urec["lasttype"])) if urec["state"] else ""
                 if debug: print(formattednow(),"=> (MqttUpd) ", urec["name"] + " State:" + State + pType)
 
@@ -159,7 +170,7 @@ def thread_pinger(UUID):
         if not urec["state"]:
             print(formattednow(), urec["name"] + " changed to On. Ping " + urec["host"])
             urec["lastupdate"] = datetime.datetime.now()
-            updatedevice("c", urec["name"], "On", "Ping", 0)
+            updatedevice("c", urec["name"], "On", "Ping", 0, urec["idx"])
         else:
             if urec["lasttype"] != "Ping":
                 #if debug:
@@ -229,7 +240,7 @@ while True:
                     print(formattednow(),urec["name"], "RSSI: %d  Distance: %.1f" % (RSSI, measureDistance(-59, RSSI)))
                 if urec["state"] == False:
                     ### Send On Update
-                    updatedevice("c", urec["name"], "On", "BLE", RSSI)
+                    updatedevice("c", urec["name"], "On", "BLE", RSSI, urec["idx"])
                     print(formattednow(),urec["name"] + " changed to On BLE. RSSI:" + str(RSSI))
                     urec["lastupdate"] = datetime.datetime.now()
                 else:
