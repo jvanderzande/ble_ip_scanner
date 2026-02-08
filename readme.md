@@ -1,4 +1,4 @@
-# BLE-SCANNER
+# BLE-IP-SCANNER
 
 ## Description
 
@@ -69,7 +69,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED. To
    ```
 
 1. Update all required environment variables for MQTT.
-1. Use the set UUID from BeaconScope in ScanDevices and remove any - or spaces and specify the Name and Host info (IP or DNS HostName) eg: 
+1. Use the set UUID from BeaconScope in ScanDevices and remove any - or spaces and specify the Name and Host info (IP or DNS HostName) eg:
 
    ``` yaml
       MQTT_IP: '192.168.0.11'   # required
@@ -86,7 +86,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED. To
                }
    ```
 
-   Define the idx in the useer record in case you like to send a "domoticz/in" mqtt update directly to Domoticz:   
+   Define the idx in the useer record in case you like to send a "domoticz/in" mqtt update directly to Domoticz:
 
    ``` yaml
                {

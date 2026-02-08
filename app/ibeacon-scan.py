@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 ### Desc ####################################################################################################
-# This script will read the raw info from hcidump to determine the presence of BLE devices
-# and send mqtt messages so that can be handled by Nodered.
+# This script will read the raw info from hcidump to determine the presence of BLE devices (phones) and
+# check for IP addresses by pinging them to determine if they are "home".
+# Send mqtt messages so that can be handled by Nodered or update a dummy switch in Domoticz.
 #############################################################################################################
 import re, sys
 import datetime
@@ -20,7 +21,7 @@ initdate = datetime.datetime.now() - datetime.timedelta(seconds=8)
 
 ### Config ####################################################################################################
 pihost = os.getenv('HOST', os.uname()[1]).lower()
-print("Starting BLE scanning on: '" + pihost + "'")
+print("v1.0 Starting BLE scanning on: '" + pihost + "'")
 
 debug = os.getenv('Debug', os.getenv('DEBUG', 'false')).lower() == 'true'
 DevTimeout = 120           # After xx Seconds to go OFF when not receiving BLE packets or Ping
