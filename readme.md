@@ -8,9 +8,9 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED. To
 ## Setup instructions
 
 1.
-   1. Install BeaconScope in android: https://play.google.com/store/apps/details?id=com.davidgyoungtech.beaconscanner
-      1. Select transmit and add tranmitter option iBeacon and save the default UUID.
-      2. Edit the created tramsmitter and update the UUID to what you want it to be and activate the transmitter.
+   1. Install [BeaconScope in android](https://play.google.com/store/apps/details?id=com.davidgyoungtech.beaconscanner) from the playstore.
+      1. Select **transmit** and add an new tranmitter, option **iBeacon** and save the it with default UUID.
+      2. Edit the created tramsmitter, update the UUID to what you want it to be and activate/save the transmitter.
    2. Install an iBeacon app on your IPHone.
       1. .....
 1. Create a directory ***/your-path/presence/app*** for this docker container, and store the files **startup.sh** and **ibeacon-scan.py** in it.
