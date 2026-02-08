@@ -1,48 +1,48 @@
 services:
-  ble-scanner:
-    image: alpine:3.20
-    container_name: ble-scanner
-    network_mode: host
-    privileged: true
-    restart: unless-stopped
+	ble-ip-scanner:
+		image: alpine:3.20
+		container_name: ble-ip-scanner
+		network_mode: host
+		privileged: true
+		restart: unless-stopped
 
-    environment:
-      # Debug: true
-      MQTT_IP: '192.168.0.11'   # required
-      # MQTT_Port: '1883'       # optional defaults to 1883
-      # MQTT_User: ''           # optional '' for both User&Password means no security
-      # MQTT_Password: ''       # optional
-      # MQTT_Topic : 'BLE_scan' # optional defaults to BTE_scan resulting in mqtt topic: BLE_scan/hostnameserver
-      # DMQTT_Topic : 'domoticz/in' # optional defaults to domoticz/in when idx is provive in device table
-      # MQTT_Retain : false     # optional defaults to false
-      # Required: Define your devices here
-      ScanDevices: |
-            {
-              "2F234454CF6D4A0FADF2F4911BA9ABC1": {
-                "name": "Name_mine",
-                "host": "s24-Mine",
-                "idx": 123
-              },
-              "2F234454CF6D4A0FADF2F4911BA9ABC2": {
-                "name": "Name_hers",
-                "host": "s24-Hers"
-              }
-            }
+		environment:
+			# Debug: true                 # optional: to trigger more logging information in case of issues
+			MQTT_IP: '192.168.0.11'       # required: define the MQTT server.
+			# MQTT_Port: '1883'           # optional: defaults to 1883
+			# MQTT_User: ''               # optional: '' for both User&Password means no security
+			# MQTT_Password: ''           # optional:
+			# MQTT_Topic : 'BLE_scan'     # optional: defaults to "BTE_scan" resulting in mqtt topic: BLE_scan/hostname-of-server
+			# DMQTT_Topic : 'domoticz/in' # optional defaults to domoticz/in when idx is provive in device table
+			# MQTT_Retain : false         # optional defaults to false
+			# Required: Define your devices here per UUID. define idx when you want the MQTT msg send to domoticz/in using the domoticz format
+			ScanDevices: |
+				{
+					"2F234454CF6D4A0FADF2F4911BA9ABC1": {
+						"name": "Name_mine",
+						"host": "s24-Mine"
+					},
+					"2F234454CF6D4A0FADF2F4911BA9ABC2": {
+						"name": "Name_hers",
+						"host": "s24-Hers",
+						"idx": 123
+					}
+				}
 
-    # Optional in case required.
-    # devices:
-    #   - /dev/bus/usb:/dev/bus/usb
+		# Optional in case required.
+		# devices:
+		#   - /dev/bus/usb:/dev/bus/usb
 
-    volumes:
-      - /your-path/presence/app:/app
-      # - /var/run/dbus:/var/run/dbus
+		volumes:
+			- /your-path/presence/app:/app
+			# - /var/run/dbus:/var/run/dbus  # Optional in case required.
 
-    working_dir: /app
+		working_dir: /app
 
-    command: >
-      sh -c "
-        apk add --no-cache bluez bluez-deprecated iputils-ping python3 py3-pip procps coreutils &&
-        python3 -m pip install paho-mqtt --break-system-packages &&
-        echo 'Container ready. Start batchfile startup.sh.' &&
-        ./startup.sh
-      "
+		command: >
+			sh -c "
+			apk add --no-cache bluez bluez-deprecated iputils-ping python3 py3-pip procps coreutils &&
+			python3 -m pip install paho-mqtt --break-system-packages &&
+			echo 'Container ready. Start batchfile startup.sh.' &&
+			./startup.sh
+			"
