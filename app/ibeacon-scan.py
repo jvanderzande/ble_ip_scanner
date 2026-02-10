@@ -24,7 +24,10 @@ pihost = os.getenv('HOST', os.uname()[1]).lower()
 print("v1.0 Starting BLE scanning on: '" + pihost + "'")
 
 debug = os.getenv('Debug', os.getenv('DEBUG', 'false')).lower() == 'true'
-DevTimeout = 120           # After xx Seconds to go OFF when not receiving BLE packets or Ping
+# After xx Seconds to go OFF when not receiving BLE packets or Ping
+BLETimeout = int(os.getenv('BLETimeout', os.getenv('BLETIMEOUT', '20')))
+PingInterval = int(os.getenv('PingInterval', os.getenv('PINGINTERVAL', '10')))
+DevTimeout = int(os.getenv('DevTimeout', os.getenv('DEVTIMEOUT', '120')))
 # MQTT Config (can be overridden by environment variables)
 broker = os.getenv('MQTT_Ip', os.getenv('MQTT_IP', ''))
 broker_port = int(os.getenv('MQTT_Port', os.getenv('MQTT_PORT', 1883)))
@@ -129,10 +132,10 @@ def thread_backgroundprocess():
         for UUID in tuuids:
             urec = TelBLE[UUID]
             #####################################################################
-            # check ping in separate thread every 10 seconds when not updated for 20 seconds by BLE
+            # check ping in separate thread every 'PingInterval(10)' seconds when not updated for 'BLETimeout(20)' seconds by BLE
             if (urec["host"] != ""
-            and (datetime.datetime.now() - urec["lastcheck"]).total_seconds() >= 20
-            and (datetime.datetime.now() - urec["lastpingcheck"]).total_seconds() >= 10) :
+            and (datetime.datetime.now() - urec["lastcheck"]).total_seconds() >= BLETimeout
+            and (datetime.datetime.now() - urec["lastpingcheck"]).total_seconds() >= PingInterval) :
                 pworker = Thread(target=thread_pinger, args=(UUID,), daemon=True)
                 pworker.start()
                 urec["lastpingcheck"] = datetime.datetime.now()
