@@ -114,16 +114,6 @@ if ScanDevices_Env:
 ### end config ################################################################################################
 
 # functions
-def measureDistance(txPower, rssi):
-    if rssi == 0:
-        return -1.0  # if we cannot determine accuracy, return -1.
-    ratio = rssi * 1.0 / txPower
-    if ratio < 1.0:
-        return pow(ratio, 10)
-    else:
-        return (0.89976) * pow(ratio, 7.7095) + 0.111
-
-
 def updatedevice(action, name, state, type="BLE", idx=0):
     if idx > 0:
         sendmqttmsg(
@@ -147,7 +137,6 @@ def updatedevice(action, name, state, type="BLE", idx=0):
 
 def sendmqttmsg(topic, payload):
     printlog("Publishing " + str(payload) + " to topic: " + topic, 3)
-
     try:
         auth = None
         if mqtt_user or mqtt_password:
