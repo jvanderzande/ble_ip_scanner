@@ -6,6 +6,8 @@ pkill hcitool btmgmt bluetoothd 2>/dev/null || true
 sleep 2
 echo "- list available devices:hcitool dev"
 hcitool dev
+cp /app/dev_presence.log /app/dev_presence_prev.log
+rm /app/dev_presence.log
 
 echo "- get first available devices with hcitool dev"
 dev=$(hcitool dev | awk '$1 ~ /^hci/ {print $1; exit}')
@@ -21,8 +23,8 @@ fi
 echo "- hciconfig $dev up"
 hciconfig $dev up
 
-echo "- starting hcitool lescan"
-hcitool lescan --duplicates 1>/dev/null &
+echo "- starting btmon → Python script ./ibeacon-scan.py"
+stdbuf -oL btmon | python3 -u ./ibeacon-scan.py
 
-echo "- starting hcidump → Python script ./ibeacon-scan.py"
-stdbuf -oL hcidump --raw | python3 -u ./ibeacon-scan.py
+# echo 'Container ready. Attach with: docker exec -it ble-scanner bash' &&
+# tail -f /dev/null
