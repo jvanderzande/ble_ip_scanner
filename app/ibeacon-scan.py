@@ -146,7 +146,7 @@ def updatedevice(action, name, state, type="BLE", idx=0):
         )
 
 def sendmqttmsg(topic, payload):
-    printlog("Publishing " + str(payload) + " to topic: " + topic, 9)
+    printlog("Publishing " + str(payload) + " to topic: " + topic, 3)
 
     try:
         auth = None
@@ -175,9 +175,9 @@ def thread_backgroundprocess():
             and (datetime.datetime.now() - urec["lastcheck"]).total_seconds() >= BLETimeout
             and (datetime.datetime.now() - urec["lastpingcheck"]).total_seconds() >= PingInterval) :
                 if (datetime.datetime.now() - urec["lastcheck"]).total_seconds() >= BLETimeout:
-                    printlog(urec["name"] + " start ping BLETIMEOUT " + str(BLETimeout) + " <= " + str((datetime.datetime.now() - urec["lastcheck"]).total_seconds()))
+                    printlog(urec["name"] + " start ping BLETIMEOUT " + str(BLETimeout) + " <= " + str((datetime.datetime.now() - urec["lastcheck"]).total_seconds()), 2)
                 if (datetime.datetime.now() - urec["lastpingcheck"]).total_seconds() >= PingInterval :
-                    printlog(urec["name"] + " start ping PingInterval " + str(PingInterval) +  " <= " + str((datetime.datetime.now() - urec["lastpingcheck"]).total_seconds()))
+                    printlog(urec["name"] + " start ping PingInterval " + str(PingInterval) +  " <= " + str((datetime.datetime.now() - urec["lastpingcheck"]).total_seconds()), 2)
 
                 pworker = Thread(target=thread_pinger, args=(UUID,), daemon=True)
                 pworker.start()
@@ -198,7 +198,7 @@ def thread_backgroundprocess():
                 State = "On" if urec["state"] else "Off"
                 updatedevice("u", urec["name"], State, urec["lasttype"], urec["idx"])
                 pType = (" LastType:" + str(urec["lasttype"])) if urec["state"] else ""
-                printlog("=> (MqttUpd) " + urec["name"] + " State:" + State + pType)
+                printlog("=> (MqttUpd) " + urec["name"] + " State:" + State + pType, 2)
 
         sleep(2)
 
