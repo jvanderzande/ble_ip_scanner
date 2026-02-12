@@ -1,7 +1,7 @@
 #!/bin/sh
 
 echo "- stopping conflicting processes"
-pkill hcitool btmgmt bluetoothd 2>/dev/null || true
+pkill hcitool hcidump btmon bluetoothd 2>/dev/null || true
 
 sleep 2
 echo "- list available devices:hcitool dev"
