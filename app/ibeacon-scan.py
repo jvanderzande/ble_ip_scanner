@@ -96,13 +96,15 @@ if ScanDevices_Env:
                 'host': meta.get('host', ''),
                 'rssi': 0,
                 'lasttype': '',
-                'lastpingcheck': pinitdate
+                'lastpingcheck': pinitdate,
+                'target': meta.get('target', 'domoticz' if int(meta.get('idx', 0)) > 0 else 'mqtt')
             }
             # avoid serializing the full record (contains datetimes) — log only core fields
             safe_record = {
                 'name': TelBLE[rev].get('name', ''),
+                'host': TelBLE[rev].get('host', ''),
                 'idx': TelBLE[rev].get('idx', 0),
-                'host': TelBLE[rev].get('host', '')
+                'target': TelBLE[rev].get('target', '')
             }
             printlog('Loaded device: %s -> %s' % (rev, json.dumps(safe_record)), 3)
     except Exception as e:
@@ -114,8 +116,8 @@ if ScanDevices_Env:
 ### end config ################################################################################################
 
 # functions
-def updatedevice(action, name, state, type="BLE", idx=0):
-    if idx > 0:
+def updatedevice(action, name, state, type="BLE", idx=0, target="mqtt"):
+    if target == "domoticz" and idx > 0:
         sendmqttmsg(
             dmqtttopic,
             '{'
@@ -178,14 +180,14 @@ def thread_backgroundprocess():
                 urec["lastcheck"] = datetime.datetime.now()
                 urec["lastupdate"] = datetime.datetime.now()
                 printlog(urec["name"] + " Changed to Offline.")
-                updatedevice("c", urec["name"], "Off", "", urec["idx"])
+                updatedevice("c", urec["name"], "Off", "", urec["idx"], urec["target"])
 
             # send update each minute as lifeline
             if (datetime.datetime.now() - urec["lastupdate"]).total_seconds() > 58:
                 ### Send Update
                 urec["lastupdate"] = datetime.datetime.now()
                 State = "On" if urec["state"] else "Off"
-                updatedevice("u", urec["name"], State, urec["lasttype"], urec["idx"])
+                updatedevice("u", urec["name"], State, urec["lasttype"], urec["idx"], urec["target"])
                 pType = (" LastType:" + str(urec["lasttype"])) if urec["state"] else ""
                 printlog("=> (MqttUpd) " + urec["name"] + " State:" + State + pType, 2)
 
@@ -206,7 +208,7 @@ def thread_pinger(UUID):
         if not urec["state"]:
             printlog(urec["name"] + " changed to On. Ping " + urec["host"])
             urec["lastupdate"] = datetime.datetime.now()
-            updatedevice("c", urec["name"], "On", "Ping", urec["idx"])
+            updatedevice("c", urec["name"], "On", "Ping", urec["idx"], urec["target"])
         else:
             if urec["lasttype"] != "Ping":
                 #if loglevel:
@@ -289,7 +291,7 @@ while True:
         printlog("UUID_key: %s -> %s" % (UUID_key, urec["name"]), 3)
         if urec["state"] == False:
             ### Send On Update
-            updatedevice("c", urec["name"], "On", "BLE", urec["idx"])
+            updatedevice("c", urec["name"], "On", "BLE", urec["idx"], urec["target"])
             printlog(urec["name"] + " changed to On BLE. ", 2)
             urec["lastupdate"] = datetime.datetime.now()
         else:
