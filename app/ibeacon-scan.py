@@ -25,7 +25,7 @@ log2file = os.getenv('Log2file', os.getenv('LOG2FILE', 'true')).lower() == 'true
 def printlog(msg, lvl=1, extrainfo=''):  # write to log file
     if log2file:
         if int(lvl) <= loglevel:
-            with open('/app/dev_presence.log', 'a') as f: f.write(formattednow() + ' ' + msg + ' ' + extrainfo + '\n')          # write to log file
+            with open('dev_presence.log', 'a') as f: f.write(formattednow() + ' ' + msg + ' ' + extrainfo + '\n')          # write to log file
     else:
         if int(lvl) <= loglevel:
             print(formattednow(), msg, extrainfo)
@@ -155,7 +155,7 @@ def thread_backgroundprocess():
         # - Ping when lastsuccess more than xx seconds and lastping test > xx seconds
         # - Timeout -> Switch Domo device/idx Off
         # - Send mqtt each minute as lifeline
-        tuuids = TelBLE.keys()  # List the available keys nd loop through them
+        tuuids = TelBLE.keys()  # List the available keys and loop through them
         for UUID in tuuids:
             urec = TelBLE[UUID]
             #####################################################################

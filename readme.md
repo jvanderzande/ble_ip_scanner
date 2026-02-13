@@ -64,7 +64,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED. To
 
          command: >
             sh -c "
-            apk add --no-cache bluez bluez-deprecated iputils-ping python3 py3-pip procps coreutils &&
+            apk add --no-cache bluez bluez-deprecated bluez-btmon iputils-ping python3 py3-pip procps coreutils &&
             python3 -m pip install paho-mqtt --break-system-packages &&
             echo 'Container ready. Start batchfile startup.sh.' &&
             ./startup.sh
