@@ -25,7 +25,7 @@ log2file = os.getenv('Log2file', os.getenv('LOG2FILE', 'true')).lower() == 'true
 def printlog(msg, lvl=1, extrainfo=''):  # write to log file
     if log2file:
         if int(lvl) <= loglevel:
-            with open('dev_presence.log', 'a') as f: f.write(formattednow() + ' ' + msg + ' ' + extrainfo + '\n')          # write to log file
+            with open('./dev_presence.log', 'a') as f: f.write(formattednow() + ' ' + msg + ' ' + extrainfo + '\n')          # write to log file
     else:
         if int(lvl) <= loglevel:
             print(formattednow(), msg, extrainfo)
@@ -33,7 +33,7 @@ def printlog(msg, lvl=1, extrainfo=''):  # write to log file
 ### Config ####################################################################################################
 pihost = os.getenv('HOST', os.uname()[1]).lower()
 if log2file:
-    print("v1.0 Starting BLE scanning on: '" + pihost + "'.\n  Check for detail logging in /app/dev_presence.log")
+    print("v1.0 Starting BLE scanning on: '" + pihost + "'.\n  Check for detail logging in ./dev_presence.log")
 printlog("v1.0 Starting BLE scanning on: '" + pihost + "'")
 
 # After xx Seconds to go OFF when not receiving BLE packets or Ping
@@ -41,9 +41,9 @@ BLETimeout = int(os.getenv('BLETimeout', os.getenv('BLETIMEOUT', '20')))
 PingInterval = int(os.getenv('PingInterval', os.getenv('PINGINTERVAL', '10')))
 DevTimeout = int(os.getenv('DevTimeout', os.getenv('DEVTIMEOUT', '120')))
 # MQTT Config (can be overridden by environment variables)
-broker = os.getenv('MQTT_Ip', os.getenv('MQTT_IP', ''))
-broker_port = int(os.getenv('MQTT_Port', os.getenv('MQTT_PORT', 1883)))
-if not broker:
+MQTT_IP = os.getenv('MQTT_Ip', os.getenv('MQTT_IP', ''))
+MQTT_IP_port = int(os.getenv('MQTT_Port', os.getenv('MQTT_PORT', 1883)))
+if not MQTT_IP:
     printlog("ERROR: Required Environment variable `MQTT_Ip` or `MQTT_IP` not found.")
     sys.exit(1)
 
@@ -142,7 +142,7 @@ def sendmqttmsg(topic, payload):
         if mqtt_user or mqtt_password:
             auth = {'username': mqtt_user, 'password': mqtt_password}
         publish.single(
-            topic, payload, 0, retain=mqttretain, hostname=broker, port=broker_port, auth=auth
+            topic, payload, 0, retain=mqttretain, hostname=MQTT_IP, port=MQTT_IP_port, auth=auth
         )
     except Exception as e:
         printlog("Publishing " + str(payload) + " to topic: " + topic + " ERROR: " + str(e))
