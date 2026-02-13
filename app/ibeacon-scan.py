@@ -19,22 +19,22 @@ def formattednow():
 pinitdate = datetime.datetime.now()
 initdate = datetime.datetime.now() - datetime.timedelta(seconds=8)
 
-loglevel = int(os.getenv('Loglevel', os.getenv('LOGLEVEL', 1)))  # 0=None 1=INFO 2=Verbose 3=Debug
-log2file = os.getenv('Log2file', os.getenv('LOG2FILE', 'true')).lower() == 'true'
+loglevel = int(os.getenv('Loglevel') or os.getenv('LOGLEVEL') or '1')  # 0=None 1=INFO 2=Verbose 3=Debug
+log2file = (os.getenv('Log2file') or os.getenv('LOG2FILE') or 'true').lower() == 'true'
 
-def printlog(msg, lvl=1, extrainfo=''):  # write to log file
+def printlog(msg, lvl=1, extrainfo='', alsoconsole=False):  # write to log file
     if log2file:
         if int(lvl) <= loglevel:
             with open('./dev_presence.log', 'a') as f: f.write(formattednow() + ' ' + msg + ' ' + extrainfo + '\n')          # write to log file
+        if alsoconsole:
+            print(formattednow(), msg, extrainfo)
     else:
         if int(lvl) <= loglevel:
             print(formattednow(), msg, extrainfo)
 
 ### Config ####################################################################################################
 pihost = os.getenv('HOST', os.uname()[1]).lower()
-if log2file:
-    print("v1.0 Starting BLE scanning on: '" + pihost + "'.\n  Check for detail logging in ./dev_presence.log")
-printlog("v1.0 Starting BLE scanning on: '" + pihost + "'")
+printlog("v1.0 Starting BLE scanning on: '" + pihost + "'",0,'',True)
 
 # After xx Seconds to go OFF when not receiving BLE packets or Ping
 BLETimeout = int(os.getenv('BLETimeout', os.getenv('BLETIMEOUT', '20')))
@@ -44,7 +44,7 @@ DevTimeout = int(os.getenv('DevTimeout', os.getenv('DEVTIMEOUT', '120')))
 MQTT_IP = os.getenv('MQTT_Ip', os.getenv('MQTT_IP', ''))
 MQTT_IP_port = int(os.getenv('MQTT_Port', os.getenv('MQTT_PORT', 1883)))
 if not MQTT_IP:
-    printlog("ERROR: Required Environment variable `MQTT_Ip` or `MQTT_IP` not found.")
+    printlog("ERROR: Required Environment variable `MQTT_Ip` or `MQTT_IP` not found.", 0, '', True)
     sys.exit(1)
 
 mqtt_user = os.getenv('MQTT_User', os.getenv('MQTT_USER', ''))
@@ -58,8 +58,20 @@ dmqtttopic = os.getenv('D_MQTT_Topic', os.getenv('D_MQTT_TOPIC', 'domoticz/in'))
 # If a `ScanDevices` environment variable is provided (JSON), use it; otherwise fall back to built-in defaults.
 ScanDevices_Env = os.getenv('ScanDevices', os.getenv('ScanDevices', ''))
 if not ScanDevices_Env:
-    printlog("ERROR: Required Environment variable `ScanDevices` or `SCANDEVICES` not found.")
+    printlog("ERROR: Required Environment variable `ScanDevices` or `SCANDEVICES` not found.", 0, '', True)
     sys.exit(1)
+
+printlog("### Config #######################################",1,'',True)
+printlog("Loglevel: " + str(loglevel) + " Log2file: " + str(log2file),1,'',True)
+printlog("pihost: " + pihost,1,'',True)
+printlog("BLETimeout: " + str(BLETimeout) + " PingInterval: " + str(PingInterval) + " DevTimeout: " + str(DevTimeout),1,'',True)
+printlog("MQTT_IP: " + MQTT_IP + " MQTT_IP_port: " + str(MQTT_IP_port) + " MQTT_Topic: " + mqtttopic + " MQTT_Retain: " + str(mqttretain),1,'',True)
+printlog("ScanDevices: " + ScanDevices_Env,1,'',True)
+printlog(">> Start Scanning:",1,'',True)
+if log2file and loglevel > 0:
+    print("  Check for detail logging in ./dev_presence.log")
+if loglevel < 1:
+    print("!! Further logging is disabled by loglevel = 0, only errors will be logged !!")
 
 def reverse_uuid_bytes(u):
     # Accept either dashed or plain hex UUID string, reverse the 16 bytes,
@@ -86,7 +98,8 @@ if ScanDevices_Env:
                 rev = reverse_uuid_bytes(uuid).lower()
             except Exception:
                 rev = str(uuid).lower()
-            printlog('Loaded device: %s -> %s -> %s' % (uuid, rev, json.dumps(meta)), 3)
+
+            printlog('Loading device: %s -> %s -> %s' % (uuid, rev, json.dumps(meta)), 3)
             TelBLE[rev] = {
                 'name': meta.get('name', ''),
                 'idx': int(meta.get('idx', 0)),
@@ -97,7 +110,7 @@ if ScanDevices_Env:
                 'rssi': 0,
                 'lasttype': '',
                 'lastpingcheck': pinitdate,
-                'target': meta.get('target', 'domoticz' if int(meta.get('idx', 0)) > 0 else 'mqtt')
+                'target': meta.get('target', 'domoticz' if int(meta.get('idx', 0)) > 0 else 'mqtt').lower()
             }
             # avoid serializing the full record (contains datetimes) — log only core fields
             safe_record = {
@@ -106,11 +119,9 @@ if ScanDevices_Env:
                 'idx': TelBLE[rev].get('idx', 0),
                 'target': TelBLE[rev].get('target', '')
             }
-            printlog('Loaded device: %s -> %s' % (rev, json.dumps(safe_record)), 3)
+            printlog('Loaded device: %s -> %s' % (rev, json.dumps(safe_record)), 2)
     except Exception as e:
-        print('Failed to parse Devices env var, using defaults; error:', e)
-        printlog('Failed to parse Devices env var, using defaults; error:',1, str(e))
-
+        printlog('Failed to parse Devices env var, using defaults; error:',1, str(e), True)
         ScanDevices_Env = ''
 
 ### end config ################################################################################################
@@ -134,6 +145,7 @@ def updatedevice(action, name, state, type="BLE", idx=0, target="mqtt"):
             + ',"type":"' + type + '"'
             + ',"state":"' + state + '"'
             + ',"name": "' + name + '"'
+            + ',"idx":' + str(idx)
             + "}"
         )
 
@@ -147,7 +159,7 @@ def sendmqttmsg(topic, payload):
             topic, payload, 0, retain=mqttretain, hostname=MQTT_IP, port=MQTT_IP_port, auth=auth
         )
     except Exception as e:
-        printlog("Publishing " + str(payload) + " to topic: " + topic + " ERROR: " + str(e))
+        printlog("Publishing " + str(payload) + " to topic: " + topic + " ERROR: " + str(e), 0, '', True)
 
 def thread_backgroundprocess():
     checktimeout = datetime.datetime.now() - datetime.timedelta(seconds=60)
@@ -166,9 +178,9 @@ def thread_backgroundprocess():
             and (datetime.datetime.now() - urec["lastcheck"]).total_seconds() >= BLETimeout
             and (datetime.datetime.now() - urec["lastpingcheck"]).total_seconds() >= PingInterval) :
                 if (datetime.datetime.now() - urec["lastcheck"]).total_seconds() >= BLETimeout:
-                    printlog(urec["name"] + " start ping BLETIMEOUT " + str(BLETimeout) + " <= " + str((datetime.datetime.now() - urec["lastcheck"]).total_seconds()), 2)
+                    printlog(urec["name"] + " start ping BLETIMEOUT " + str(BLETimeout) + " <= " + str((datetime.datetime.now() - urec["lastcheck"]).total_seconds()), 3)
                 if (datetime.datetime.now() - urec["lastpingcheck"]).total_seconds() >= PingInterval :
-                    printlog(urec["name"] + " start ping PingInterval " + str(PingInterval) +  " <= " + str((datetime.datetime.now() - urec["lastpingcheck"]).total_seconds()), 2)
+                    printlog(urec["name"] + " start ping PingInterval " + str(PingInterval) +  " <= " + str((datetime.datetime.now() - urec["lastpingcheck"]).total_seconds()), 3)
 
                 pworker = Thread(target=thread_pinger, args=(UUID,), daemon=True)
                 pworker.start()
@@ -220,7 +232,7 @@ def thread_pinger(UUID):
         urec["lasttype"] = "Ping"
 
     else:
-        printlog("<< thread_pinger for " + urec["name"] + " Ping Failed. " + str(pingstate), 2)
+        printlog("< Ping " + urec["name"] + " Failed. " + str(pingstate), 2)
 
 
 ###################################################################################################
@@ -267,12 +279,12 @@ while True:
     # b'          Version: 256.256\n'
     # b'          TX power: -59 dB\n'
     # b'        RSSI: -60 dBm (0xc4)\n'
-    # decode the incoming line to text for pattern matching
+    # Check for UUID lines from btmod
+
     try:
         sline = line.decode('utf-8', 'ignore')
     except Exception:
         sline = str(line)
-
     if "UUID:" in sline:
         # printlog("==> UUIDline = " + sline.strip(), 3)
 
