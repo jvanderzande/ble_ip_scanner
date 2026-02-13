@@ -29,7 +29,8 @@ services:
                "2F234454CF6D4A0FADF2F4911BA9ABC2": {
                   "name": "Name_hers",
                   "host": "s24-Hers",
-                  "idx": 123
+                  "idx": 123,
+                  "target": "mqtt"  # optional: "mqtt" or "domoticz". Defaults to "domoticz/in" when idx > 0 else to "_MQTT_Topic_"
                }
             }
 
