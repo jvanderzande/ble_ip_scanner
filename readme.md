@@ -49,7 +49,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED. To
                      "name": "Name_hers",
                      "host": "s24-Hers",
                      "idx": 123,
-                     "target": "mqtt"   # optional: "mqtt" or "domoticz". Defaults to "domoticz/in" when idx > 0 else to "_MQTT_Topic_"
+                     "target": "mqtt"
                   }
                }
 
@@ -91,13 +91,15 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED. To
    ```
 
    Define the idx in the useer record in case you like to send a "domoticz/in" mqtt update directly to Domoticz:
+   Define "target" optional: "mqtt" or "domoticz". Defaults to "domoticz/in" when idx > 0 else to "_MQTT_Topic_"
 
    ``` yaml
                {
                "2F234454CF6D4A0FADF2F4911BA9ABC1": {
                   "name": "Name_mine",
+                  "host": "s24-Mine",
                   "idx": 123,
-                  "host": "s24-Mine"
+                  "target": "mqtt"
                },
    ```
 
