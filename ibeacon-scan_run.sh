@@ -3,10 +3,13 @@
 ### This script is used to run the ibeacon-scan.py script on a debian host
 ###########################################################################
 
-
+# "name" required: Name of the device
+# "host" optional: HOSTName or Ip address of the device. This will enable IP ping when no BLE packets are received
+# "idx" optional: idx of the device in the domoticz device table
+# "target" optional: "mqtt" or "domoticz". Defaults to "domoticz/in" when idx > 0 else to "_MQTT_Topic_"
 export ScanDevices='{
    "2F234454CF6D4A0FADF2F4911BA9ABC1": { "name": "Name_mine", "host": "s24-Mine" },
-   "2F234454CF6D4A0FADF2F4911BA9ABC2": { "name": "Name_hers", "host": "s24-Hers", "idx": 123 }
+   "2F234454CF6D4A0FADF2F4911BA9ABC2": { "name": "Name_hers", "host": "s24-Hers", "idx": 123, "target": "mqtt" }
 }'
 
 export MQTT_IP='192.168.0.11'       # required: define the MQTT server.
@@ -63,6 +66,3 @@ sudo hcitool lescan --duplicates --passive 1>/dev/null &
 
 echo "- starting btmon → Python script ./app/ibeacon-scan.py"
 sudo stdbuf -oL btmon | /usr/bin/python3 -u ./app/ibeacon-scan.py
-
-# reset the lot
-#sudo service bluetooth restart
