@@ -25,7 +25,7 @@ echo "- hciconfig $dev up"
 hciconfig $dev up
 
 echo "- starting hcitool lescan"
-sudo hcitool lescan --duplicates --passive 1>/dev/null &
+hcitool lescan --duplicates --passive 1>/dev/null &
 
 
 echo "- starting btmon → Python script ./ibeacon-scan.py"
