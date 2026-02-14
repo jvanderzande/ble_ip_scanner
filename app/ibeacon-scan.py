@@ -110,6 +110,8 @@ if ScanDevices_Env:
                 'host': meta.get('host', ''),
                 'rssi': 0,
                 'txpower': -59,
+                'dist': 0,
+                'distcnt': 0,
                 'lasttype': '',
                 'lastpingcheck': pinitdate,
                 'target': meta.get('target', 'domoticz' if int(meta.get('idx', 0)) > 0 else 'mqtt').lower()
@@ -170,8 +172,6 @@ def updatedevice(action, UUID, state="", type=""):
     else:
     # Send to MQTT to to defined topic
         # Calculate distance based on rssi & txpower
-        # printlog("#### MQTT:",3,str(TelBLE[UUID_key]))
-        mDist = measureDistance(urec["txpower"], urec["rssi"])
         sendmqttmsg(
             mqtttopic + "/" + pihost+"/" + str(urec["uuid"]),
             '{'
@@ -179,11 +179,14 @@ def updatedevice(action, UUID, state="", type=""):
             + ',"type":"' + type + '"'
             + ',"state":"' + state + '"'
             + ',"rssi":' + str(urec["rssi"]) + ''
-            + ',"dist":' + str(mDist) + ''
+            + ',"dist":' + str(urec["dist"]) + ''
             + ',"name": "' + urec["name"] + '"'
             + ',"idx":' + str(urec["idx"])
             + "}"
         )
+
+    # Reset distance counter to create new average
+    urec["distcnt"] = 1
 
 def sendmqttmsg(topic, payload):
     printlog("Publishing " + str(payload) + " to topic: " + topic, 3)
@@ -304,11 +307,22 @@ while True:
     if "> HCI Event:" in line:
         if UUID_key and UUID_key in TelBLE:
             urec = TelBLE[UUID_key]
+
+            mDist = measureDistance(TelBLE[UUID_key]["txpower"], TelBLE[UUID_key]["rssi"])
+            if TelBLE[UUID_key]["distcnt"] == 0:
+                TelBLE[UUID_key]["dist"] = mDist
+            else:
+                TelBLE[UUID_key]["dist"] = round((mDist + (TelBLE[UUID_key]["dist"]*TelBLE[UUID_key]["distcnt"])) / (TelBLE[UUID_key]["distcnt"]+1) ,2)
+            if TelBLE[UUID_key]["distcnt"] < 3:
+                TelBLE[UUID_key]["distcnt"] += 1
+            printlog("-> UUID: %s -> %10s RSSI=%d TX=%d Dist=%.2f AVGDist=%.2f" % (UUID_key, TelBLE[UUID_key]["name"], TelBLE[UUID_key]["rssi"], TelBLE[UUID_key]["txpower"], mDist, TelBLE[UUID_key]["dist"]), 3)
+
             if TelBLE[UUID_key]["sendmqtt"]:
                 ### Send On Update
                 updatedevice("c", UUID_key, "On", "BLE")
                 TelBLE[UUID_key]["lastupdate"] = datetime.datetime.now()
                 TelBLE[UUID_key]["sendmqtt"] = False
+
         UUID_key = None
 
     elif "UUID:" in line:
@@ -320,7 +334,6 @@ while True:
             continue
 
         # Receive iBeacon for known device
-        printlog("-> UUID: %s -> %s" % (UUID_key, TelBLE[UUID_key]["name"]), 3)
         if not TelBLE[UUID_key]["state"]:
             printlog(TelBLE[UUID_key]["name"] + " changed to On -> BLE. ", 2)
             TelBLE[UUID_key]["state"] = True
