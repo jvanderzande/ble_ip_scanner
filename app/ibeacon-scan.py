@@ -25,12 +25,12 @@ log2file = (os.getenv('Log2file') or os.getenv('LOG2FILE') or 'true').lower() ==
 def printlog(msg, lvl=1, extrainfo='', alsoconsole=False):  # write to log file
     if log2file:
         if int(lvl) <= loglevel:
-            with open('./dev_presence.log', 'a') as f: f.write(formattednow() + ' ' + msg + ' ' + extrainfo + '\n')          # write to log file
+            with open('./dev_presence.log', 'a') as f: f.write(formattednow() + '[' + str(lvl) + '] ' + msg + ' ' + extrainfo + '\n')          # write to log file
         if alsoconsole:
-            print(formattednow(), msg, extrainfo)
+            print(formattednow() + '[' + str(lvl) + ']', msg, extrainfo)
     else:
         if int(lvl) <= loglevel:
-            print(formattednow(), msg, extrainfo)
+            print(formattednow() +'[' + str(lvl) + ']', msg, extrainfo)
 
 ### Config ####################################################################################################
 pihost = os.getenv('HOST', os.uname()[1]).lower()
@@ -50,7 +50,7 @@ if not MQTT_IP:
 mqtt_user = os.getenv('MQTT_User', os.getenv('MQTT_USER', ''))
 mqtt_password = os.getenv('MQTT_Password', os.getenv('MQTT_PASSWORD', ''))
 
-mqtttopic = os.getenv('MQTT_Topic', os.getenv('MQTT_TOPIC', 'BTE_scan'))
+mqtttopic = os.getenv('MQTT_Topic', os.getenv('MQTT_TOPIC', 'Presence'))
 mqttretain = os.getenv('MQTT_Retain', os.getenv('MQTT_RETAIN', 'false')).lower() == 'true'
 dmqtttopic = os.getenv('D_MQTT_Topic', os.getenv('D_MQTT_TOPIC', 'domoticz/in'))
 
@@ -101,6 +101,7 @@ if ScanDevices_Env:
 
             printlog('Loading device: %s -> %s -> %s' % (uuid, rev, json.dumps(meta)), 3)
             TelBLE[rev] = {
+                'uuid': uuid,
                 'name': meta.get('name', ''),
                 'idx': int(meta.get('idx', 0)),
                 'state': False,
@@ -108,6 +109,7 @@ if ScanDevices_Env:
                 'lastupdate': pinitdate,
                 'host': meta.get('host', ''),
                 'rssi': 0,
+                'txpower': -59,
                 'lasttype': '',
                 'lastpingcheck': pinitdate,
                 'target': meta.get('target', 'domoticz' if int(meta.get('idx', 0)) > 0 else 'mqtt').lower()
@@ -119,7 +121,7 @@ if ScanDevices_Env:
                 'idx': TelBLE[rev].get('idx', 0),
                 'target': TelBLE[rev].get('target', '')
             }
-            printlog('Loaded device: %s -> %s' % (rev, json.dumps(safe_record)), 2)
+            printlog('Loaded device: %s -> %s' % (rev, json.dumps(safe_record)), 1)
     except Exception as e:
         printlog('Failed to parse Devices env var, using defaults; error:',1, str(e), True)
         ScanDevices_Env = ''
@@ -127,25 +129,59 @@ if ScanDevices_Env:
 ### end config ################################################################################################
 
 # functions
-def updatedevice(action, name, state, type="BLE", idx=0, target="mqtt"):
-    if target == "domoticz" and idx > 0:
-        sendmqttmsg(
-            dmqtttopic,
-            '{'
-            + '"command": "switchlight"'
-            + ',"idx":' + str(idx)
-            + ',"switchcmd": "' + state + '"'
-            + "}"
-        )
+def measureDistance(txPower, rssi):
+    if rssi == 0:
+        return -1.0  # if we cannot determine accuracy, return -1.
+    ratio = rssi * 1.0 / txPower
+    if ratio < 1.0:
+        return round(pow(ratio, 10), 2)
     else:
+        return round(((0.89976) * pow(ratio, 7.7095) + 0.111), 2)
+
+def updatedevice(action, UUID, state="", type=""):
+    urec = TelBLE[UUID]
+
+    if type != "":
+        urec["lasttype"] = type
+
+    State = "On" if urec["state"] else "Off"
+    # Set last Changed Type when state is changed
+    printlog("=> " + ("MqttChg" if type == "c" else "MqttUpd") + ": "+ urec["target"] + " " + urec["name"] + " State:" + State + " LastType:" + urec["lasttype"], 2)
+
+    # Set state when action is Update / lifeline
+    if action == "u":
+        if state == "":
+            state = "On" if urec["state"] else "Off"
+        if type == "":
+            type = urec["lasttype"]
+
+    # Send to MQTT to Domoticz
+    if urec["target"] == "domoticz" and urec["idx"] > 0:
+        ## Only send Changes to Domoticz
+        if action == "c":
+            sendmqttmsg(
+                dmqtttopic,
+                '{'
+                + '"command": "switchlight"'
+                + ',"idx":' + str(urec["idx"])
+                + ',"switchcmd": "' + state + '"'
+                + "}"
+            )
+    else:
+    # Send to MQTT to to defined topic
+        # Calculate distance based on rssi & txpower
+        # printlog("#### MQTT:",3,str(TelBLE[UUID_key]))
+        mDist = measureDistance(urec["txpower"], urec["rssi"])
         sendmqttmsg(
-            mqtttopic + "/" + pihost,
+            mqtttopic + "/" + pihost+"/" + str(urec["uuid"]),
             '{'
             + '"action":"' + action + '"'
             + ',"type":"' + type + '"'
             + ',"state":"' + state + '"'
-            + ',"name": "' + name + '"'
-            + ',"idx":' + str(idx)
+            + ',"rssi":' + str(urec["rssi"]) + ''
+            + ',"dist":' + str(mDist) + ''
+            + ',"name": "' + urec["name"] + '"'
+            + ',"idx":' + str(urec["idx"])
             + "}"
         )
 
@@ -192,16 +228,13 @@ def thread_backgroundprocess():
                 urec["lastcheck"] = datetime.datetime.now()
                 urec["lastupdate"] = datetime.datetime.now()
                 printlog(urec["name"] + " Changed to Offline.")
-                updatedevice("c", urec["name"], "Off", "", urec["idx"], urec["target"])
+                updatedevice("c", UUID, "Off")
 
-            # send update each minute as lifeline
+            # send update each minute as lifeline to mqtt
             if (datetime.datetime.now() - urec["lastupdate"]).total_seconds() > 58:
                 ### Send Update
                 urec["lastupdate"] = datetime.datetime.now()
-                State = "On" if urec["state"] else "Off"
-                updatedevice("u", urec["name"], State, urec["lasttype"], urec["idx"], urec["target"])
-                pType = (" LastType:" + str(urec["lasttype"])) if urec["state"] else ""
-                printlog("=> (MqttUpd) " + urec["name"] + " State:" + State + pType, 2)
+                updatedevice("u", UUID)
 
         sleep(2)
 
@@ -218,9 +251,9 @@ def thread_pinger(UUID):
         # Link to table again in case it was updated in the mean time
         urec = TelBLE[UUID]
         if not urec["state"]:
-            printlog(urec["name"] + " changed to On. Ping " + urec["host"])
+            printlog(urec["name"] + " changed to On -> Ping " + urec["host"])
             urec["lastupdate"] = datetime.datetime.now()
-            updatedevice("c", urec["name"], "On", "Ping", urec["idx"], urec["target"])
+            updatedevice("c", UUID, "On", "Ping")
         else:
             if urec["lasttype"] != "Ping":
                 #if loglevel:
@@ -229,7 +262,6 @@ def thread_pinger(UUID):
                 printlog("<< " + urec["name"] + " Ping OK " + urec["host"], 3)
         urec["lastcheck"] = datetime.datetime.now()
         urec["state"] = True
-        urec["lasttype"] = "Ping"
 
     else:
         printlog("< Ping " + urec["name"] + " Failed. " + str(pingstate), 2)
@@ -238,33 +270,21 @@ def thread_pinger(UUID):
 ###################################################################################################
 # Start of process that reads the hcidump output and scan for defined UUID.
 ###################################################################################################
-"""
-###################################################################################################
-#### Package content from Android APP
-         1         2         3         4         5         6         7         8         9
-1        01        01        01        01        01        01        01        01        01
-043E270201020161ED30C87F691B1AFF4C0002152F234454CF6D4A0FADF2F4911BA9ABC100010001C5A0
- USED UUID:                             2F234454CF6D4A0FADF2F4911BA9ABC1
-
-043E270201020161ED30C87F691B1AFF
-4C0002152F234454CF6D4A0FADF2F4911BA9ABC1
-00010001C5A0
-###################################################################################################
-"""
-
-packet = ""
-
 # Start background worker in its own thread
 bworker = Thread(target=thread_backgroundprocess, daemon=True)
 bworker.start()
 
-IBEACON_RE = re.compile(r'UUID:\s*([0-9a-fA-F\-]{32,36})')
+UUID_key = None
 # Read stdin
 p = sys.stdin.buffer
 while True:
-    line = p.readline()
-    if not line:
+    nline = p.readline()
+    if not nline:
         break
+    try:
+        line = nline.decode('utf-8', 'ignore')
+    except Exception:
+        line = str(nline)
     # print(line)
     # b'> HCI Event: LE Meta Event (0x3e) plen 39                   #63 [hci0] 1.646593\n'
     # b'      LE Advertising Report (0x02)\n'
@@ -281,35 +301,40 @@ while True:
     # b'        RSSI: -60 dBm (0xc4)\n'
     # Check for UUID lines from btmod
 
-    try:
-        sline = line.decode('utf-8', 'ignore')
-    except Exception:
-        sline = str(line)
-    if "UUID:" in sline:
-        # printlog("==> UUIDline = " + sline.strip(), 3)
+    if "> HCI Event:" in line:
+        if UUID_key and UUID_key in TelBLE:
+            urec = TelBLE[UUID_key]
+            if TelBLE[UUID_key]["sendmqtt"]:
+                ### Send On Update
+                updatedevice("c", UUID_key, "On", "BLE")
+                TelBLE[UUID_key]["lastupdate"] = datetime.datetime.now()
+                TelBLE[UUID_key]["sendmqtt"] = False
+        UUID_key = None
 
-        # try to extract the human-readable UUID from the hcidump line
-        m = IBEACON_RE.search(sline)
-        UUID_key="?"
-        if m:
-            UUID_key = m.group(1)
-
+    elif "UUID:" in line:
+        UUID_key = line.split("UUID:")[1].strip()
         # check if UUID exists in TelBLE dictionary
         if UUID_key not in TelBLE:
-            printlog("Not in table UUID_key: %s" % (UUID_key), 3)
+            printlog("!> UUID:%s  Not in table." % (UUID_key), 3)
+            UUID_key = None
             continue
 
-        urec = TelBLE[UUID_key]
-        printlog("UUID_key: %s -> %s" % (UUID_key, urec["name"]), 3)
-        if urec["state"] == False:
-            ### Send On Update
-            updatedevice("c", urec["name"], "On", "BLE", urec["idx"], urec["target"])
-            printlog(urec["name"] + " changed to On BLE. ", 2)
-            urec["lastupdate"] = datetime.datetime.now()
-        else:
-            if urec["lasttype"] != "BLE":
-                printlog("-> " + urec["name"] + " changed to BLE UP")
+        # Receive iBeacon for known device
+        printlog("-> UUID: %s -> %s" % (UUID_key, TelBLE[UUID_key]["name"]), 3)
+        if not TelBLE[UUID_key]["state"]:
+            printlog(TelBLE[UUID_key]["name"] + " changed to On -> BLE. ", 2)
+            TelBLE[UUID_key]["state"] = True
+            TelBLE[UUID_key]["sendmqtt"] = True
+        elif TelBLE[UUID_key]["lasttype"] != "BLE":
+            printlog("-> " + TelBLE[UUID_key]["name"] + " changed to BLE UP")
 
-        urec["lastcheck"] = datetime.datetime.now()
-        urec["lasttype"] = "BLE"
-        urec["state"] = True
+        TelBLE[UUID_key]["lastcheck"] = datetime.datetime.now()
+        TelBLE[UUID_key]["lasttype"] = "BLE"
+
+    elif UUID_key and "TX power:" in line:
+        TelBLE[UUID_key]["txpower"] = int(line.split("TX power:")[1].split("dB")[0].strip())
+        # printlog("#### RSSI:",3,str(TelBLE[UUID_key]))
+
+    elif UUID_key and "RSSI:" in line:
+        TelBLE[UUID_key]["rssi"] = int(line.split("RSSI:")[1].split("dBm")[0].strip())
+        # printlog("#### RSSI:",3,str(TelBLE[UUID_key]))

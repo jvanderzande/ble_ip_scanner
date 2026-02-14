@@ -21,7 +21,7 @@ export MQTT_IP='192.168.0.11'       # required: define the MQTT server.
 # export MQTT_Port='1883'           # optional: defaults to 1883
 # export MQTT_User=''               # optional: '' for both User&Password means no security
 # export MQTT_Password=''           # optional:
-# export MQTT_Topic='BLE_scan'      # optional: defaults to "BTE_scan" resulting in mqtt topic: BLE_scan/hostname-of-server
+# export MQTT_Topic='Presence'      # optional: defaults to "Presence" resulting in mqtt topic: Presence/hostname-of-server
 # export DMQTT_Topic='domoticz/in'  # optional defaults to domoticz/in when idx is provive in device table
 # export MQTT_Retain=false          # optional defaults to false
 
@@ -35,13 +35,13 @@ fi
 echo "Start scanning process $n"
 echo "Restart bluetooth task scanning $n"
 # reset any running instance
-sudo service bluetooth restart
-sudo pkill --signal SIGINT hcitool
-sudo pkill --signal SIGINT hcidump
-sudo pkill --signal SIGINT btmon
+service bluetooth restart
+pkill --signal SIGINT hcitool
+pkill --signal SIGINT hcidump
+pkill --signal SIGINT btmon
 
 halt_btmon() {
-  sudo pkill --signal SIGINT btmon
+  pkill --signal SIGINT btmon
 }
 
 trap halt_btmon INT
@@ -62,7 +62,7 @@ else
 fi
 
 echo "- starting hcitool lescan"
-sudo hcitool lescan --duplicates --passive 1>/dev/null &
+hcitool lescan --duplicates --passive 1>/dev/null &
 
 echo "- starting btmon → Python script ./app/ibeacon-scan.py"
-sudo stdbuf -oL btmon | /usr/bin/python3 -u ./app/ibeacon-scan.py
+stdbuf -oL btmon | /usr/bin/python3 -u ./app/ibeacon-scan.py

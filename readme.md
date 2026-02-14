@@ -35,7 +35,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED. To
             # MQTT_Port: '1883'           # optional: defaults to 1883
             # MQTT_User: ''               # optional: '' for both User&Password means no security
             # MQTT_Password: ''           # optional:
-            # MQTT_Topic : 'BLE_scan'     # optional: defaults to "BTE_scan" resulting in mqtt topic: BLE_scan/hostname-of-server
+            # MQTT_Topic : 'Presence'     # optional: defaults to "Presence" resulting in mqtt topic: Presence/hostname-of-server/UUID-of-device
             # DMQTT_Topic : 'domoticz/in' # optional defaults to domoticz/in when idx is provive in device table
             # MQTT_Retain : false         # optional defaults to false
             # Required: Define your devices here per UUID. define idx when you want the MQTT msg send to domoticz/in using the domoticz format
