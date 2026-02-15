@@ -48,6 +48,7 @@ services:
       command: >
          sh -c "
          apk add --no-cache bluez bluez-deprecated bluez-btmon iputils-ping python3 py3-pip procps coreutils &&
+         export PIP_ROOT_USER_ACTION=ignore &&
          python3 -m pip install paho-mqtt --break-system-packages &&
          echo 'Container ready. Start batchfile startup.sh.' &&
          ./startup.sh
