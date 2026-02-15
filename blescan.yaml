@@ -6,42 +6,8 @@ services:
       privileged: true
       restart: unless-stopped
 
-      environment:
-         MQTT_IP: '192.168.0.11'       # required: define the MQTT server.
-         # Loglevel: 1                 # optional: loglevel 0=None 1=INFO 2=Verbose 3=Debug     default=1
-         # Log2file: true              # optional: Write logging to file /app/dev_presence.log  default=true
-         # DevTimeout: 120             # optional: Time without BLE packets and failing pings to remort device to start checking with Ping. Defaults to 120
-         # BLETimeout: 20              # optional: Time without BLE packet to start checking with Ping. Defaults to 20
-         # PingInterval: 10            # optional: Interval time between Ping checks. Defaults to 10
-         # Calculate_Distance: false   # optional: Calculate distance between devices, MQTT msg will contain RSSI & DIST fields. Defaults to false
-         # MQTT_Port: '1883'           # optional: defaults to 1883
-         # MQTT_User: ''               # optional: '' for both User&Password means no security
-         # MQTT_Password: ''           # optional:
-         # MQTT_Topic : 'Presence'     # optional: defaults to "Presence" resulting in mqtt topic: Presence/hostname-of-server/UUID-of-device
-         # DMQTT_Topic : 'domoticz/in' # optional defaults to domoticz/in when idx is provive in device table
-         # MQTT_Retain : false         # optional defaults to false
-         # Required: Define your devices here per UUID. define idx when you want the MQTT msg send to domoticz/in using the domoticz format
-         ScanDevices: |
-            {
-               "2F234454CF6D4A0FADF2F4911BA9ABC1": {
-                  "name": "Name_mine",
-                  "host": "s24-Mine"
-               },
-               "2F234454CF6D4A0FADF2F4911BA9ABC2": {
-                  "name": "Name_hers",
-                  "host": "s24-Hers",
-                  "idx": 123,
-                  "target": "mqtt"  # optional: "mqtt" or "domoticz". Defaults to "domoticz/in" when idx > 0 else to "_MQTT_Topic_"
-               }
-            }
-
-      # Optional in case required.
-      # devices:
-      #   - /dev/bus/usb:/dev/bus/usb
-
       volumes:
          - /your-path/presence/app:/app
-         # - /var/run/dbus:/var/run/dbus  # Optional in case required.
 
       working_dir: /app
 

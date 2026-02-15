@@ -2,7 +2,7 @@
 
 ## Description
 
-The BLE-Scanner monitors the presence of mobile Phones. To determine if a device (Android/iOS) is home, it scans BLE advertisements for a specific UUID. If the UUID is not detected, it attempts to ping the defined IP or hostname.
+The BLE-Scanner monitors the presence of mobile Phones. To determine if a device (Android/iOS) is home, it listens for BLE iBeacon packages for a specific UUID. If the UUID is not detected, it attempts to ping the defined IP or hostname.
 Detection states are sent via MQTT to a predefined topic for use in Node-RED. To control a Domoticz dummy switch directly, simply define the idx variable to send updates to domoticz/in.
 
 ## Setup instructions
@@ -13,8 +13,63 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED. To
       2. Edit the created tramsmitter, update the UUID to what you want it to be and activate/save the transmitter.
    2. Install an iBeacon app on your IPHone.
       1. .....
-1. Create a directory ***/your-path/presence/app*** for this docker container, and store the files **startup.sh** and **ibeacon-scan.py** in it.
-1. Create a new Stack in portainer using the ***blescan.yaml*** model.
+2. Create a directory ***/your-path/presence/app*** for this docker container, and store the files **startup.sh** and **ibeacon-scan.py** in it.
+3. Copy **app/config_model.json** to **app/config.json** 
+4. Change the setting for your setup. 
+   1. Explanation of variables the json config file:
+
+   ``` text
+   - Loglevel: 1                # loglevel 0=None 1=INFO 2=Verbose 3=Debug     default=1
+   - Log2file: true             # Write logging to file /app/dev_presence.log  default=true
+   - DevTimeout: 120            # Time without BLE packets and failing pings to remort device to start checking with Ping. Defaults to 120
+   - BLETimeout: 20             # Time without BLE packet to start checking with Ping. Defaults to 20
+   - PingInterval: 10           # Interval time between Ping checks. Defaults to 10
+   - Calculate_Distance: false  # Calculate distance between devices, MQTT msg will contain RSSI & DIST fields. Defaults to false
+   - MQTT_IP: '192.168.0.11'    # MQTT server IP address or Hostname.
+   - MQTT_Port: '1883'          # MQTT port, defaults to 1883
+   - MQTT_User: ''              # '' for both User&Password means no security
+   - MQTT_Password: ''          # 
+   - MQTT_Topic: 'Presence'     # defaults to "Presence" resulting in mqtt topic: Presence/hostname-of-server/UUID-of-device
+   - DMQTT_Topic: 'domoticz/in' # defaults to domoticz/in when idx is provive in device table
+   - MQTT_Retain: false         # defaults to false
+   - scan_devices:              # Define your devices here per UUID. define idx when you want the MQTT msg send to domoticz/in using the domoticz format
+   ```
+
+   1. Example json config file:
+
+   ``` json
+      {
+      "loglevel": "1", 
+      "log2file": "true",
+      "ble_timeout": "20",
+      "ping_interval": "10",
+      "dev_timeout": "120",
+      "calculate_distance": "false",
+      "mqtt_ip": "192.168.1.100",
+      "mqtt_port": "1883",
+      "mqtt_user": "",
+      "mqtt_password": "",
+      "mqtt_topic": "Presence",
+      "mqtt_domoticz_topic": "domoticz/in",
+      "mqtt_retain": "false",
+      "scan_devices": {
+         "a0aaa91b-91f4-f2ad-0f4a-6dcf5444232f": {
+            "name": "Phone1",
+            "host": "192.168.1.10",
+            "idx": 1,
+            "target": "domoticz"
+         },
+         "b1bbb91b-91f4-f2ad-0f4a-6dcf5444232f": {
+            "name": "Phone2",
+            "host": "192.168.1.11",
+            "idx": 2,
+            "target": "mqtt"
+         }
+      }
+   }
+   ```
+
+5. Create a new Stack in portainer using the ***blescan.yaml*** model.
 
    ``` yaml
    services:
@@ -25,39 +80,6 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED. To
          privileged: true
          restart: unless-stopped
 
-         environment:
-            MQTT_IP: '192.168.0.11'       # required: define the MQTT server.
-            # Loglevel: 1                 # optional: loglevel 0=None 1=INFO 2=Verbose 3=Debug     default=1
-            # Log2file: true              # optional: Write logging to file /app/dev_presence.log  default=true
-            # DevTimeout: 120             # optional: Time without BLE packets and failing pings to remort device to start checking with Ping. Defaults to 120
-            # BLETimeout: 20              # optional: Time without BLE packet to start checking with Ping. Defaults to 20
-            # PingInterval: 10            # optional: Interval time between Ping checks. Defaults to 10
-            # Calculate_Distance: false   # optional: Calculate distance between devices, MQTT msg will contain RSSI & DIST fields. Defaults to false
-            # MQTT_Port: '1883'           # optional: defaults to 1883
-            # MQTT_User: ''               # optional: '' for both User&Password means no security
-            # MQTT_Password: ''           # optional:
-            # MQTT_Topic : 'Presence'     # optional: defaults to "Presence" resulting in mqtt topic: Presence/hostname-of-server/UUID-of-device
-            # DMQTT_Topic : 'domoticz/in' # optional defaults to domoticz/in when idx is provive in device table
-            # MQTT_Retain : false         # optional defaults to false
-            # Required: Define your devices here per UUID. define idx when you want the MQTT msg send to domoticz/in using the domoticz format
-            ScanDevices: |
-               {
-                  "2F234454CF6D4A0FADF2F4911BA9ABC1": {
-                     "name": "Name_mine",
-                     "host": "s24-Mine"
-                  },
-                  "2F234454CF6D4A0FADF2F4911BA9ABC2": {
-                     "name": "Name_hers",
-                     "host": "s24-Hers",
-                     "idx": 123,
-                     "target": "mqtt"
-                  }
-               }
-
-         # Optional in case required.
-         # devices:
-         #   - /dev/bus/usb:/dev/bus/usb
-
          volumes:
             - /your-path/presence/app:/app
             # - /var/run/dbus:/var/run/dbus  # Optional in case required.
@@ -67,14 +89,15 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED. To
          command: >
             sh -c "
             apk add --no-cache bluez bluez-deprecated bluez-btmon iputils-ping python3 py3-pip procps coreutils &&
+            export PIP_ROOT_USER_ACTION=ignore &&
             python3 -m pip install paho-mqtt --break-system-packages &&
             echo 'Container ready. Start batchfile startup.sh.' &&
             ./startup.sh
             "     
    ```
 
-1. Update all required environment variables for MQTT.
-1. Use the set UUID from BeaconScope in ScanDevices and remove any - or spaces and specify the Name and Host info (IP or DNS HostName) eg:
+6. Update all required environment variables for MQTT.
+7. Use the set UUID from BeaconScope in ScanDevices and remove any - or spaces and specify the Name and Host info (IP or DNS HostName) eg:
 
    ``` yaml
       MQTT_IP: '192.168.0.11'   # required
@@ -104,7 +127,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED. To
                },
    ```
 
-1. Update volumes to the path where you stored the startup.sh and ibeacon-scan.py files:
+8. Update volumes to the path where you stored the startup.sh and ibeacon-scan.py files:
 
    ``` yaml
       volumes:

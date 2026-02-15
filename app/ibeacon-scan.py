@@ -4,7 +4,7 @@
 # check for IP addresses by pinging them to determine if they are "home".
 # Send mqtt messages so that can be handled by Nodered or update a dummy switch in Domoticz.
 #############################################################################################################
-import re, sys
+import sys
 import datetime
 from time import sleep
 import paho.mqtt.publish as publish
@@ -19,47 +19,81 @@ def formattednow():
 pinitdate = datetime.datetime.now()
 initdate = datetime.datetime.now() - datetime.timedelta(seconds=8)
 
-loglevel = int(os.getenv('Loglevel') or os.getenv('LOGLEVEL') or '1')  # 0=None 1=INFO 2=Verbose 3=Debug
-log2file = (os.getenv('Log2file') or os.getenv('LOG2FILE') or 'true').lower() == 'true'
+### Load Configuration from JSON ######################################
+def load_config():
+    """Load configuration from JSON file """
+    config = {}
+    config_file = './config.json'
+
+    # Try to load from config.json file first
+    if os.path.isfile(config_file):
+        try:
+            with open(config_file, 'r') as f:
+                config = json.load(f)
+            print(f"[INFO] Configuration loaded from {config_file}")
+        except Exception as e:
+            print(f"[ERROR] Failed to load {config_file}: {e}")
+            print("[INFO] Falling back to environment variables")
+
+    return config
+
+def save_config(config, filename='./config.json'):
+    """Save current configuration to a JSON file"""
+    try:
+        with open(filename, 'w') as f:
+            json.dump(config, f, indent=2)
+        print(f"[INFO] Configuration saved to {filename}")
+    except Exception as e:
+        print(f"[ERROR] Failed to save configuration to {filename}: {e}")
+
+# Load configuration
+config = load_config()
+loglevel = int(config.get('loglevel', '1'))  # 0=None 1=INFO 2=Verbose 3=Debug 9=trace
+log2file = (config.get('log2file', 'true')).lower() == 'true'
 
 def printlog(msg, lvl=1, extrainfo='', alsoconsole=False):  # write to log file
     if log2file:
         if int(lvl) <= loglevel:
             with open('./log/dev_presence.log', 'a') as f: f.write(formattednow() + '[' + str(lvl) + '] ' + msg + ' ' + extrainfo + '\n')          # write to log file
         if alsoconsole:
-            print(formattednow() + '-[' + str(lvl) + ']', msg, extrainfo)
+            print(formattednow() + '[' + str(lvl) + ']', msg, extrainfo)
     else:
         if int(lvl) <= loglevel:
-            print(formattednow() +'.[' + str(lvl) + ']', msg, extrainfo)
+            print(formattednow() + '(' + str(lvl) + ')', msg, extrainfo)
 
 ### Config ####################################################################################################
 pihost = os.getenv('HOST', os.uname()[1]).lower()
-printlog("v1.0 Starting BLE scanning on: '" + pihost + "'",0,'',True)
+printlog("v1.0a Starting BLE scanning on: '" + pihost + "'",0,'',True)
 
+# After xx Seconds no BLE try Ping
+BLETimeout = int(config.get('ble_timeout', '20'))
+# Ping every xx seconds
+PingInterval = int(config.get('ping_interval', '10'))
 # After xx Seconds to go OFF when not receiving BLE packets or Ping
-BLETimeout = int(os.getenv('BLETimeout', os.getenv('BLETIMEOUT', '20')))
-PingInterval = int(os.getenv('PingInterval', os.getenv('PINGINTERVAL', '10')))
-DevTimeout = int(os.getenv('DevTimeout', os.getenv('DEVTIMEOUT', '120')))
-Calculate_Distance = os.getenv('Calculate_Distance', os.getenv('CALCULATE_DISTANCE', 'false')).lower() == 'true'
-# MQTT Config (can be overridden by environment variables)
-MQTT_IP = os.getenv('MQTT_Ip', os.getenv('MQTT_IP', ''))
-MQTT_IP_port = int(os.getenv('MQTT_Port', os.getenv('MQTT_PORT', 1883)))
+DevTimeout = int(config.get('dev_timeout', '120'))
+# Retrieve RSSI & TX Power to calculate the approx distance (5 measures average)
+Calculate_Distance = (config.get('calculate_distance', 'false')).lower() == 'true'
+# MQTT Config
+MQTT_IP = config.get('mqtt_ip', '')
+MQTT_IP_port = int(config.get('mqtt_port', 1883))
 if not MQTT_IP:
-    printlog("ERROR: Required Environment variable `MQTT_Ip` or `MQTT_IP` not found.", 0, '', True)
+    printlog("ERROR: Required configuration `mqtt_ip` not found in config.json or environment.", 0, '', True)
     sys.exit(1)
-
-mqtt_user = os.getenv('MQTT_User', os.getenv('MQTT_USER', ''))
-mqtt_password = os.getenv('MQTT_Password', os.getenv('MQTT_PASSWORD', ''))
-
-dmqtttopic = os.getenv('D_MQTT_Topic', os.getenv('D_MQTT_TOPIC', 'domoticz/in'))
-mqtttopic = os.getenv('MQTT_Topic', os.getenv('MQTT_TOPIC', 'Presence'))
-mqttretain = os.getenv('MQTT_Retain', os.getenv('MQTT_RETAIN', 'false')).lower() == 'true'
+# MQTT User & Password
+mqtt_user = config.get('mqtt_user', '')
+mqtt_password = config.get('mqtt_password', '')
+# MQTT Domoticz/in Topic
+dmqtttopic = config.get('mqtt_domoticz_topic', 'domoticz/in')
+# MQTT Presence Topic: mqtttopic/hostname-server/device-UUID
+mqtttopic = config.get('mqtt_topic', 'Presence')
+# Retain flag for MQTT messages
+mqttretain = (config.get('mqtt_retain', 'false')).lower() == 'true'
 
 # Telephones config both BLE & HOSTNAME/IP
-# If a `ScanDevices` environment variable is provided (JSON), use it; otherwise fall back to built-in defaults.
-ScanDevices_Env = os.getenv('ScanDevices', os.getenv('ScanDevices', ''))
-if not ScanDevices_Env:
-    printlog("ERROR: Required Environment variable `ScanDevices` or `SCANDEVICES` not found.", 0, '', True)
+# Configuration can come from config.json or ScanDevices environment variable
+ScanDevices = config.get('scan_devices', '')
+if not ScanDevices:
+    printlog("ERROR: Required configuration `scan_devices` not found in config.json or environment.", 0, '', True)
     sys.exit(1)
 
 printlog("### Config #######################################",1,'',True)
@@ -67,7 +101,7 @@ printlog("Loglevel: " + str(loglevel) + " Log2file: " + str(log2file),1,'',True)
 printlog("pihost: " + pihost,1,'',True)
 printlog("BLETimeout: " + str(BLETimeout) + " PingInterval: " + str(PingInterval) + " DevTimeout: " + str(DevTimeout),1,'',True)
 printlog("MQTT_IP: " + MQTT_IP + " MQTT_IP_port: " + str(MQTT_IP_port) + " MQTT_Topic: " + mqtttopic + " MQTT_Retain: " + str(mqttretain),1,'',True)
-printlog("ScanDevices: " + ScanDevices_Env,1,'',True)
+printlog("ScanDevices: " + json.dumps(ScanDevices), 1, '', True)
 
 def reverse_uuid_bytes(u):
     # Accept either dashed or plain hex UUID string, reverse the 16 bytes,
@@ -85,12 +119,11 @@ def reverse_uuid_bytes(u):
     except Exception:
         return str(u).lower()
 
-if ScanDevices_Env:
+if ScanDevices:
     Calculate_Distance_required = False
     try:
-        parsed = json.loads(ScanDevices_Env)
         TelBLE = {}
-        for uuid, meta in parsed.items():
+        for uuid, meta in ScanDevices.items():
             try:
                 rev = reverse_uuid_bytes(uuid).lower()
             except Exception:
@@ -125,7 +158,7 @@ if ScanDevices_Env:
             printlog('Loaded device: %s -> %s' % (rev, json.dumps(safe_record)), 1)
     except Exception as e:
         printlog('Failed to parse Devices env var, using defaults; error:',1, str(e), True)
-        ScanDevices_Env = ''
+        ScanDevices = ''
 
 if not Calculate_Distance_required:
     if Calculate_Distance:
@@ -351,7 +384,11 @@ while True:
                 urec["txpower"] = 0
                 urec["rssi"] = 0
                 urec["dist"] = 0
-            printlog("-> UUID: %s -> %10s RSSI=%d TX=%d Dist=%.2f AVGDist=%.2f" % (UUID_key, urec["name"], urec["rssi"], urec["txpower"], mDist, urec["dist"]), 3)
+
+            if Calculate_Distance:
+                printlog("-> UUID: %s -> %10s RSSI=%d TX=%d Dist=%.2f AVGDist=%.2f" % (UUID_key, urec["name"], urec["rssi"], urec["txpower"], mDist, urec["dist"]), 3)
+            else:
+                printlog("-> UUID: %s -> %10s" % (UUID_key, urec["name"]), 3)
 
             if urec["sendmqtt"]:
                 ### Send state Update as it changed
