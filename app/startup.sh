@@ -3,8 +3,9 @@
 echo "- stopping conflicting processes"
 pkill hcitool hcidump btmon bluetoothd 2>/dev/null || true
 
-cp /app/dev_presence.log /app/dev_presence_prev.log >/dev/null 2>&1
-rm /app/dev_presence.log >/dev/null 2>&1
+mkdir -p /app/log
+cp /app/log/dev_presence.log /app/log/dev_presence_prev.log >/dev/null 2>&1
+rm /app/log/dev_presence.log >/dev/null 2>&1
 
 sleep 2
 echo "- list available devices:hcitool dev"

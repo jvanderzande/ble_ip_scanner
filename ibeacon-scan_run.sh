@@ -49,8 +49,9 @@ trap halt_btmon INT
 sleep 2
 echo "- list available devices:hcitool dev"
 hcitool dev
-cp dev_presence.log dev_presence_prev.log >/dev/null 2>&1
-rm dev_presence.log >/dev/null 2>&1
+mkdir -p log
+cp log/dev_presence.log log/dev_presence_prev.log >/dev/null 2>&1
+rm log/dev_presence.log >/dev/null 2>&1
 
 echo "- get first available devices with hcitool dev"
 dev=$(hcitool dev | awk '$1 ~ /^hci/ {print $1; exit}')

@@ -25,7 +25,7 @@ log2file = (os.getenv('Log2file') or os.getenv('LOG2FILE') or 'true').lower() ==
 def printlog(msg, lvl=1, extrainfo='', alsoconsole=False):  # write to log file
     if log2file:
         if int(lvl) <= loglevel:
-            with open('./dev_presence.log', 'a') as f: f.write(formattednow() + '[' + str(lvl) + '] ' + msg + ' ' + extrainfo + '\n')          # write to log file
+            with open('./log/dev_presence.log', 'a') as f: f.write(formattednow() + '[' + str(lvl) + '] ' + msg + ' ' + extrainfo + '\n')          # write to log file
         if alsoconsole:
             print(formattednow() + '-[' + str(lvl) + ']', msg, extrainfo)
     else:
@@ -137,7 +137,7 @@ else:
 ### end config ################################################################################################
 printlog(">> Start Scanning:",1,'',True)
 if log2file and loglevel > 0:
-    print("  Check for detail logging in ./dev_presence.log")
+    print("  Check for detail logging in ./log/dev_presence.log")
 if loglevel < 1:
     print("!! Further logging is disabled by loglevel = 0, only errors will be logged !!")
 
