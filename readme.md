@@ -26,12 +26,13 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED. To
          restart: unless-stopped
 
          environment:
+            MQTT_IP: '192.168.0.11'       # required: define the MQTT server.
             # Loglevel: 1                 # optional: loglevel 0=None 1=INFO 2=Verbose 3=Debug     default=1
             # Log2file: true              # optional: Write logging to file /app/dev_presence.log  default=true
             # DevTimeout: 120             # optional: Time without BLE packets and failing pings to remort device to start checking with Ping. Defaults to 120
             # BLETimeout: 20              # optional: Time without BLE packet to start checking with Ping. Defaults to 20
             # PingInterval: 10            # optional: Interval time between Ping checks. Defaults to 10
-            MQTT_IP: '192.168.0.11'       # required: define the MQTT server.
+            # Calculate_Distance: false   # optional: Calculate distance between devices, MQTT msg will contain RSSI & DIST fields. Defaults to false
             # MQTT_Port: '1883'           # optional: defaults to 1883
             # MQTT_User: ''               # optional: '' for both User&Password means no security
             # MQTT_Password: ''           # optional:

@@ -27,10 +27,10 @@ def printlog(msg, lvl=1, extrainfo='', alsoconsole=False):  # write to log file
         if int(lvl) <= loglevel:
             with open('./dev_presence.log', 'a') as f: f.write(formattednow() + '[' + str(lvl) + '] ' + msg + ' ' + extrainfo + '\n')          # write to log file
         if alsoconsole:
-            print(formattednow() + '[' + str(lvl) + ']', msg, extrainfo)
+            print(formattednow() + '-[' + str(lvl) + ']', msg, extrainfo)
     else:
         if int(lvl) <= loglevel:
-            print(formattednow() +'[' + str(lvl) + ']', msg, extrainfo)
+            print(formattednow() +'.[' + str(lvl) + ']', msg, extrainfo)
 
 ### Config ####################################################################################################
 pihost = os.getenv('HOST', os.uname()[1]).lower()
@@ -40,6 +40,7 @@ printlog("v1.0 Starting BLE scanning on: '" + pihost + "'",0,'',True)
 BLETimeout = int(os.getenv('BLETimeout', os.getenv('BLETIMEOUT', '20')))
 PingInterval = int(os.getenv('PingInterval', os.getenv('PINGINTERVAL', '10')))
 DevTimeout = int(os.getenv('DevTimeout', os.getenv('DEVTIMEOUT', '120')))
+Calculate_Distance = os.getenv('Calculate_Distance', os.getenv('CALCULATE_DISTANCE', 'false')).lower() == 'true'
 # MQTT Config (can be overridden by environment variables)
 MQTT_IP = os.getenv('MQTT_Ip', os.getenv('MQTT_IP', ''))
 MQTT_IP_port = int(os.getenv('MQTT_Port', os.getenv('MQTT_PORT', 1883)))
@@ -50,9 +51,9 @@ if not MQTT_IP:
 mqtt_user = os.getenv('MQTT_User', os.getenv('MQTT_USER', ''))
 mqtt_password = os.getenv('MQTT_Password', os.getenv('MQTT_PASSWORD', ''))
 
+dmqtttopic = os.getenv('D_MQTT_Topic', os.getenv('D_MQTT_TOPIC', 'domoticz/in'))
 mqtttopic = os.getenv('MQTT_Topic', os.getenv('MQTT_TOPIC', 'Presence'))
 mqttretain = os.getenv('MQTT_Retain', os.getenv('MQTT_RETAIN', 'false')).lower() == 'true'
-dmqtttopic = os.getenv('D_MQTT_Topic', os.getenv('D_MQTT_TOPIC', 'domoticz/in'))
 
 # Telephones config both BLE & HOSTNAME/IP
 # If a `ScanDevices` environment variable is provided (JSON), use it; otherwise fall back to built-in defaults.
@@ -67,11 +68,6 @@ printlog("pihost: " + pihost,1,'',True)
 printlog("BLETimeout: " + str(BLETimeout) + " PingInterval: " + str(PingInterval) + " DevTimeout: " + str(DevTimeout),1,'',True)
 printlog("MQTT_IP: " + MQTT_IP + " MQTT_IP_port: " + str(MQTT_IP_port) + " MQTT_Topic: " + mqtttopic + " MQTT_Retain: " + str(mqttretain),1,'',True)
 printlog("ScanDevices: " + ScanDevices_Env,1,'',True)
-printlog(">> Start Scanning:",1,'',True)
-if log2file and loglevel > 0:
-    print("  Check for detail logging in ./dev_presence.log")
-if loglevel < 1:
-    print("!! Further logging is disabled by loglevel = 0, only errors will be logged !!")
 
 def reverse_uuid_bytes(u):
     # Accept either dashed or plain hex UUID string, reverse the 16 bytes,
@@ -90,6 +86,7 @@ def reverse_uuid_bytes(u):
         return str(u).lower()
 
 if ScanDevices_Env:
+    Calculate_Distance_required = False
     try:
         parsed = json.loads(ScanDevices_Env)
         TelBLE = {}
@@ -111,7 +108,7 @@ if ScanDevices_Env:
                 'rssi': 0,
                 'txpower': -59,
                 'dist': 0,
-                'distcnt': 0,
+                'dist_measurements': [],
                 'lasttype': '',
                 'lastpingcheck': pinitdate,
                 'target': meta.get('target', 'domoticz' if int(meta.get('idx', 0)) > 0 else 'mqtt').lower()
@@ -123,12 +120,26 @@ if ScanDevices_Env:
                 'idx': TelBLE[rev].get('idx', 0),
                 'target': TelBLE[rev].get('target', '')
             }
+            if TelBLE[rev]["target"] == 'mqtt':
+                Calculate_Distance_required = True
             printlog('Loaded device: %s -> %s' % (rev, json.dumps(safe_record)), 1)
     except Exception as e:
         printlog('Failed to parse Devices env var, using defaults; error:',1, str(e), True)
         ScanDevices_Env = ''
 
+if not Calculate_Distance_required:
+    if Calculate_Distance:
+        printlog("Info: Calculate_Distance was enabled but all devices use domiticz as target, so now disabled.",1,'',True)
+        Calculate_Distance = False
+else:
+    printlog("Calculate_Distance: " + str(Calculate_Distance),1,'',True)
+
 ### end config ################################################################################################
+printlog(">> Start Scanning:",1,'',True)
+if log2file and loglevel > 0:
+    print("  Check for detail logging in ./dev_presence.log")
+if loglevel < 1:
+    print("!! Further logging is disabled by loglevel = 0, only errors will be logged !!")
 
 # functions
 def measureDistance(txPower, rssi):
@@ -157,36 +168,33 @@ def updatedevice(action, UUID, state="", type=""):
         if type == "":
             type = urec["lasttype"]
 
-    # Send to MQTT to Domoticz
     if urec["target"] == "domoticz" and urec["idx"] > 0:
+        # Send to MQTT to Domoticz
         ## Only send Changes to Domoticz
         if action == "c":
-            sendmqttmsg(
-                dmqtttopic,
-                '{'
+            sendmqttmsg(dmqtttopic, '{'
                 + '"command": "switchlight"'
                 + ',"idx":' + str(urec["idx"])
                 + ',"switchcmd": "' + state + '"'
                 + "}"
             )
     else:
-    # Send to MQTT to to defined topic
-        # Calculate distance based on rssi & txpower
-        sendmqttmsg(
-            mqtttopic + "/" + pihost+"/" + str(urec["uuid"]),
-            '{'
+        # Send to MQTT to to defined topic
+        payload = ('{'
             + '"action":"' + action + '"'
+            + '"name":"' + urec["name"] + '"'
+            + '"idx":"' + str(urec["idx"]) + '"'
             + ',"type":"' + type + '"'
             + ',"state":"' + state + '"'
-            + ',"rssi":' + str(urec["rssi"]) + ''
-            + ',"dist":' + str(urec["dist"]) + ''
-            + ',"name": "' + urec["name"] + '"'
-            + ',"idx":' + str(urec["idx"])
-            + "}"
         )
+        if Calculate_Distance:
+            payload += ',"rssi":' + str(urec["rssi"]) + ''
+            payload += ',"dist":' + str(urec["dist"]) + ''
+        payload += "}"
+        sendmqttmsg(mqtttopic + "/" + pihost+"/" + str(urec["uuid"]), payload )
 
-    # Reset distance counter to create new average
-    urec["distcnt"] = 1
+    # Reset distance measurements to start fresh
+    urec["dist_measurements"] = []
 
 def sendmqttmsg(topic, payload):
     printlog("Publishing " + str(payload) + " to topic: " + topic, 3)
@@ -285,47 +293,26 @@ while True:
     if not nline:
         break
     try:
-        line = nline.decode('utf-8', 'ignore')
+        line = nline.decode('utf-8', 'ignore').lstrip()
     except Exception:
-        line = str(nline)
-    # print(line)
+        line = str(nline).lstrip()
+    printlog(line, 9)
     # b'> HCI Event: LE Meta Event (0x3e) plen 39                   #63 [hci0] 1.646593\n'
-    # b'      LE Advertising Report (0x02)\n'
-    # b'        Num reports: 1\n'
-    # b'        Event type: Scannable undirected - ADV_SCAN_IND (0x02)\n'
-    # b'        Address type: Random (0x01)\n'
-    # b'        Address: 53:C0:8D:87:4D:48 (Resolvable)\n'
-    # b'        Data length: 27\n'
-    # b'        Company: Apple, Inc. (76)\n'
-    # b'          Type: iBeacon (2)\n'
-    # b'          UUID: a0aaa91b-91f4-f2ad-0f4a-6dcf5444232f\n'
-    # b'          Version: 256.256\n'
-    # b'          TX power: -59 dB\n'
-    # b'        RSSI: -60 dBm (0xc4)\n'
+    # b'LE Advertising Report (0x02)\n'
+    # b'Num reports: 1\n'
+    # b'Event type: Scannable undirected - ADV_SCAN_IND (0x02)\n'
+    # b'Address type: Random (0x01)\n'
+    # b'Address: 53:C0:8D:87:4D:48 (Resolvable)\n'
+    # b'Data length: 27\n'
+    # b'Company: Apple, Inc. (76)\n'
+    # b'Type: iBeacon (2)\n'
+    # b'UUID: a0aaa91b-91f4-f2ad-0f4a-6dcf5444232f\n'
+    # b'Version: 256.256\n'
+    # b'TX power: -59 dB\n'
+    # b'RSSI: -60 dBm (0xc4)\n'
     # Check for UUID lines from btmod
 
-    if "> HCI Event:" in line:
-        if UUID_key and UUID_key in TelBLE:
-            urec = TelBLE[UUID_key]
-
-            mDist = measureDistance(TelBLE[UUID_key]["txpower"], TelBLE[UUID_key]["rssi"])
-            if TelBLE[UUID_key]["distcnt"] == 0:
-                TelBLE[UUID_key]["dist"] = mDist
-            else:
-                TelBLE[UUID_key]["dist"] = round((mDist + (TelBLE[UUID_key]["dist"]*TelBLE[UUID_key]["distcnt"])) / (TelBLE[UUID_key]["distcnt"]+1) ,2)
-            if TelBLE[UUID_key]["distcnt"] < 3:
-                TelBLE[UUID_key]["distcnt"] += 1
-            printlog("-> UUID: %s -> %10s RSSI=%d TX=%d Dist=%.2f AVGDist=%.2f" % (UUID_key, TelBLE[UUID_key]["name"], TelBLE[UUID_key]["rssi"], TelBLE[UUID_key]["txpower"], mDist, TelBLE[UUID_key]["dist"]), 3)
-
-            if TelBLE[UUID_key]["sendmqtt"]:
-                ### Send On Update
-                updatedevice("c", UUID_key, "On", "BLE")
-                TelBLE[UUID_key]["lastupdate"] = datetime.datetime.now()
-                TelBLE[UUID_key]["sendmqtt"] = False
-
-        UUID_key = None
-
-    elif "UUID:" in line:
+    if line.startswith("UUID:"):
         UUID_key = line.split("UUID:")[1].strip()
         # check if UUID exists in TelBLE dictionary
         if UUID_key not in TelBLE:
@@ -337,17 +324,49 @@ while True:
         if not TelBLE[UUID_key]["state"]:
             printlog(TelBLE[UUID_key]["name"] + " changed to On -> BLE. ", 2)
             TelBLE[UUID_key]["state"] = True
+            # Send this update immediately when device is processed
             TelBLE[UUID_key]["sendmqtt"] = True
         elif TelBLE[UUID_key]["lasttype"] != "BLE":
             printlog("-> " + TelBLE[UUID_key]["name"] + " changed to BLE UP")
 
         TelBLE[UUID_key]["lastcheck"] = datetime.datetime.now()
         TelBLE[UUID_key]["lasttype"] = "BLE"
+        continue
 
-    elif UUID_key and "TX power:" in line:
+    # Get RSSI and TX Power info only when an known UUID is found
+    if not UUID_key:
+        continue
+    elif (not Calculate_Distance) or line.startswith(">"):
+        if UUID_key in TelBLE:
+            urec = TelBLE[UUID_key]
+            mDist = 0
+            if Calculate_Distance:
+                mDist = measureDistance(urec["txpower"], urec["rssi"])
+                # calculate the average mDist of the last 5 measurements
+                urec["dist_measurements"].append(mDist)
+                if len(urec["dist_measurements"]) > 5:
+                    urec["dist_measurements"].pop(0)
+                urec["dist"] = round(sum(urec["dist_measurements"]) / len(urec["dist_measurements"]), 2)
+            else:
+                urec["txpower"] = 0
+                urec["rssi"] = 0
+                urec["dist"] = 0
+            printlog("-> UUID: %s -> %10s RSSI=%d TX=%d Dist=%.2f AVGDist=%.2f" % (UUID_key, urec["name"], urec["rssi"], urec["txpower"], mDist, urec["dist"]), 3)
+
+            if urec["sendmqtt"]:
+                ### Send state Update as it changed
+                updatedevice("c", UUID_key, "On", "BLE")
+                urec["lastupdate"] = datetime.datetime.now()
+                urec["sendmqtt"] = False
+
+        UUID_key = None
+
+    elif line.startswith("TX power:"):
         TelBLE[UUID_key]["txpower"] = int(line.split("TX power:")[1].split("dB")[0].strip())
-        # printlog("#### RSSI:",3,str(TelBLE[UUID_key]))
+        printlog("#### TX power:",9,str(TelBLE[UUID_key]))
 
-    elif UUID_key and "RSSI:" in line:
+    elif line.startswith("RSSI:"):
         TelBLE[UUID_key]["rssi"] = int(line.split("RSSI:")[1].split("dBm")[0].strip())
-        # printlog("#### RSSI:",3,str(TelBLE[UUID_key]))
+        printlog("#### RSSI:",9,str(TelBLE[UUID_key]))
+    else:
+        printlog("#### ????:",9,line)
