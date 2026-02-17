@@ -9,38 +9,51 @@ if [ ! -f /init.done ]; then
 else
    echo '== Container already initialized.'
 fi
+# check if config.json exists, else fore an update from github which will also init the config.json.
 if [ ! -f /app/config.json ]; then
    export firstrun='y'
    export gitupdate='y'
    echo '### Initializing your setup.'
    echo '== !!!! Update the config.json file to your needs and restart the container !!!'
 fi
-# https://github.com/jvanderzande/ble_scan/raw/refs/heads/development/app/ibeacon-scan.py
+
 # Ensure $gitbranch is either 'main' or 'development'; default to 'master' otherwise
 if [ -z "$gitbranch" ] || { [ "$gitbranch" != "main" ] && [ "$gitbranch" != "development" ]; }; then
    export gitbranch="main"
 fi
+# get required/updated files from github repository
 if [ "$gitupdate" = 'y' ]; then
    echo "== Check for updates in repository "$gitbranch" on GitHub ==="
-   wget -q -O /app/ibeacon-scan.py.n   "https://github.com/jvanderzande/ble_scan/raw/refs/heads/${gitbranch}/app/ibeacon-scan.py"
-   wget -q -O /app/startup.sh.n   "https://github.com/jvanderzande/ble_scan/raw/refs/heads/${gitbranch}/app/startup.sh"
-   wget -q -O /app/config_model.json "https://github.com/jvanderzande/ble_scan/raw/refs/heads/${gitbranch}/app/config_model.json"
+   wget -q -O /app/ble_ip_scanner.py.n   "https://github.com/jvanderzande/ble_ip_scanner/raw/refs/heads/${gitbranch}/app/ble_ip_scanner.py"
+   wget -q -O /app/startup.sh.n   "https://github.com/jvanderzande/ble_ip_scanner/raw/refs/heads/${gitbranch}/app/startup.sh"
+   wget -q -O /app/config_model.json "https://github.com/jvanderzande/ble_ip_scanner/raw/refs/heads/${gitbranch}/app/config_model.json"
    cp -n /app/config_model.json /app/config.json
-   # Check whether the /app/ibeacon-scan.py.n file is different from /app/ibeacon-scan.py
-   if [ -f /app/ibeacon-scan.py.n ] && ! cmp -s /app/ibeacon-scan.py.n /app/ibeacon-scan.py; then
-      mv /app/ibeacon-scan.py.n /app/ibeacon-scan.py
-      echo '-- Updated /app/ibeacon-scan.py from GitHub'
+   # Check whether the /app/ble_ip_scanner.py.n file is different from /app/ble_ip_scanner.py
+   if [ -f /app/ble_ip_scanner.py.n ]; then
+      if ! cmp -s /app/ble_ip_scanner.py.n /app/ble_ip_scanner.py; then
+         mv /app/ble_ip_scanner.py.n /app/ble_ip_scanner.py
+         echo '-- Updated /app/ble_ip_scanner.py from GitHub'
+      fi
+   else
+      echo '-- file not downloaded: /app/ble_ip_scanner.py.n'
    fi
    # Check whether the /app/startup.sh.n file is different from /app/startup.sh
-   if [ -f /app/startup.sh.n ] && ! cmp -s /app/startup.sh.n /app/startup.sh; then
-      echo '-- Updated /app/startup.sh from GitHub  && Restarting container'
-      cp /app/startup.sh.n /app/startup.sh && exit 9        # Update /app/startup.sh && Restart
+   if [ -f /app/startup.sh.n ]; then
+      if ! cmp -s /app/startup.sh.n /app/startup.sh; then
+         echo '-- Updated /app/startup.sh from GitHub  && Restarting container'
+         echo $(cmp /app/startup.sh.n /app/startup.sh)
+         cp /app/startup.sh   /app/startup.sh.old
+         cp /app/startup.sh.n /app/startup.sh.new
+         mv /app/startup.sh.n /app/startup.sh && exit 9        # Update /app/startup.sh && Restart
+      fi
+   else
+      echo '-- file not downloaded: /app/startup.sh.n'
    fi
 else
    echo '-- No update needed from GitHub.'
 fi
 rm /app/startup.sh.n >/dev/null 2>&1
-rm /app/ibeacon-scan.py.n >/dev/null 2>&1
+rm /app/ble_ip_scanner.py.n >/dev/null 2>&1
 chmod +x /app/startup.sh
 echo '== Container ready.'
 
@@ -69,8 +82,8 @@ hciconfig $dev up
 echo "-- starting hcitool lescan"
 hcitool lescan --duplicates --passive 1>/dev/null &
 
-echo "-- starting btmon → Python script ./ibeacon-scan.py"
-stdbuf -oL btmon | python3 -u ./ibeacon-scan.py
+echo "-- starting btmon → Python script ./ble_ip_scanner.py"
+stdbuf -oL btmon | python3 -u ./ble_ip_scanner.py
 
 # echo 'Container ready. Used for debugging'
 # tail -f /dev/null

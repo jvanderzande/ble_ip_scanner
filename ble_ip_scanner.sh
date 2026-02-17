@@ -1,8 +1,8 @@
 #!/bin/bash
 ###########################################################################
-### This script is used to run the ibeacon-scan.py script on a debian host
+### This script is used to run the ble_ip_scanner.py script on a debian host
 ###########################################################################
-n=$(ps x | grep "ibeacon-scan_run.sh" | grep -v grep | wc -l)
+n=$(ps x | grep "ble_ip_scanner_run.sh" | grep -v grep | wc -l)
 #echo "n=$n"
 if [ $n -gt 3 ] ; then
     #echo "Process already running $n"
@@ -42,5 +42,5 @@ fi
 echo "- starting hcitool lescan"
 hcitool lescan --duplicates --passive 1>/dev/null &
 
-echo "- starting btmon → Python script ./app/ibeacon-scan.py"
-stdbuf -oL btmon | /usr/bin/python3 -u ./app/ibeacon-scan.py
+echo "- starting btmon → Python script ./app/ble_ip_scanner.py"
+stdbuf -oL btmon | /usr/bin/python3 -u ./app/ble_ip_scanner.py

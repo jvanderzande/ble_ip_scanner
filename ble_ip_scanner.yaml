@@ -1,7 +1,7 @@
 services:
-  ble-ip-scanner:
+  ble_ip_scanner:
     image: alpine:3.20
-    container_name: ble-ip-scanner
+    container_name: ble_ip_scanner
     network_mode: host
     privileged: true
     restart: unless-stopped
@@ -10,8 +10,8 @@ services:
       - /your-path/presence/app:/app
 
     environment:
-      gitbranch: 'development'   # GitHub branch 'main' or 'development'
-      gitupdate: 'n'             # Force github update at startup container
+      gitbranch: 'main'        # GitHub branch 'main' or 'development'
+      gitupdate: 'n'           # Force github update at startup container
 
     working_dir: /app
 

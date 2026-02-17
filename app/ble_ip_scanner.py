@@ -110,7 +110,7 @@ printlog("ScanDevices: " + json.dumps(ScanDevices), 1, '', True)
 def reverse_uuid_bytes(u):
     # Accept either dashed or plain hex UUID string, reverse the 16 bytes,
     # and return a standard dashed UUID string (lowercase).
-    h = str(u).replace('-', '').lower()
+    h = str(u).translate(str.maketrans('', '', '- ')).lower()
     if len(h) != 32:
         # Not a 16-byte hex string; return normalized input
         return str(u).lower()
