@@ -14,6 +14,8 @@ import json
 import subprocess
 from threading import Thread
 
+config_file = './config/config.json'
+
 def formattednow():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S ")
 #time used as InitValue for Table and Loop test
@@ -23,8 +25,8 @@ initdate = datetime.datetime.now() - datetime.timedelta(seconds=8)
 ### Load Configuration from JSON ######################################
 def load_config(console=True):
     """Load configuration from JSON file """
+    global config_file
     config = {}
-    config_file = './config.json'
 
     # Try to load from config.json file first
     if os.path.isfile(config_file):
@@ -38,23 +40,14 @@ def load_config(console=True):
 
     return config
 
-def save_config(config, filename='./config.json'):
-    """Save current configuration to a JSON file"""
-    try:
-        with open(filename, 'w') as f:
-            json.dump(config, f, indent=2)
-        print(f"[INFO] Configuration saved to {filename}")
-    except Exception as e:
-        print(f"[ERROR] Failed to save configuration to {filename}: {e}")
-
 # Load configuration
 config = load_config()
 firstrun = os.getenv('firstrun', 'n') == 'y'
 if firstrun or config.get('mqtt_ip', '192.168.1.0') == '192.168.1.0':
-    print(f"v{version} Initial startup retrying each 10 seconds until config.json is updated.")
+    print(f"v{version} Initial startup: retrying every 5 seconds until config.json is updated.")
     while config.get('mqtt_ip', '192.168.1.0') == '192.168.1.0':
         config = load_config(False)
-        sleep(10)
+        sleep(5)
 loglevel = int(config.get('loglevel', '1'))  # 0=None 1=INFO 2=Verbose 3=Debug 9=trace
 log2file = (config.get('log2file', 'true')).lower() == 'true'
 

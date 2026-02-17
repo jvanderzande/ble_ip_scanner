@@ -17,6 +17,10 @@ if [ ! -f /app/config.json ]; then
    echo '== !!!! Update the config.json file to your needs and restart the container !!!'
 fi
 
+mkdir -p /app/log
+mkdir -p /app/config
+
+
 # Ensure $gitbranch is either 'main' or 'development'; default to 'master' otherwise
 if [ -z "$gitbranch" ] || { [ "$gitbranch" != "main" ] && [ "$gitbranch" != "development" ]; }; then
    export gitbranch="main"
@@ -26,8 +30,8 @@ if [ "$gitupdate" = 'y' ]; then
    echo "== Check for updates in repository "$gitbranch" on GitHub ==="
    wget -q -O /app/ble_ip_scanner.py.n   "https://github.com/jvanderzande/ble_ip_scanner/raw/refs/heads/${gitbranch}/app/ble_ip_scanner.py"
    wget -q -O /app/startup.sh.n   "https://github.com/jvanderzande/ble_ip_scanner/raw/refs/heads/${gitbranch}/app/startup.sh"
-   wget -q -O /app/config_model.json "https://github.com/jvanderzande/ble_ip_scanner/raw/refs/heads/${gitbranch}/app/config_model.json"
-   cp -n /app/config_model.json /app/config.json
+   wget -q -O /app/config/config_model.json "https://github.com/jvanderzande/ble_ip_scanner/raw/refs/heads/${gitbranch}/app/config/config_model.json"
+   cp -n /app/config/config_model.json /app/config/config.json
    # Check whether the /app/ble_ip_scanner.py.n file is different from /app/ble_ip_scanner.py
    if [ -f /app/ble_ip_scanner.py.n ]; then
       if ! cmp -s /app/ble_ip_scanner.py.n /app/ble_ip_scanner.py; then
@@ -58,7 +62,6 @@ chmod +x /app/startup.sh
 echo '== Container ready.'
 
 echo "### Init bluetooth "
-mkdir -p /app/log
 cp /app/log/dev_presence.log /app/log/dev_presence_prev.log >/dev/null 2>&1
 rm /app/log/dev_presence.log >/dev/null 2>&1
 
