@@ -1,4 +1,3 @@
 local/
 app/config.json
-docker_compose_presence_image.yaml
 Dockerfile

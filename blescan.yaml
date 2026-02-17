@@ -1,21 +1,19 @@
 services:
-   ble-ip-scanner:
-      image: alpine:3.20
-      container_name: ble-ip-scanner
-      network_mode: host
-      privileged: true
-      restart: unless-stopped
+  ble-ip-scanner:
+    image: alpine:3.20
+    container_name: ble-ip-scanner
+    network_mode: host
+    privileged: true
+    restart: unless-stopped
 
-      volumes:
-         - /your-path/presence/app:/app
+    volumes:
+      - /your-path/presence/app:/app
 
-      working_dir: /app
+    environment:
+      gitbranch: 'development'   # GitHub branch 'main' or 'development'
+      gitupdate: 'n'             # Force github update at startup container
 
-      command: >
-         sh -c "
-         apk add --no-cache bluez bluez-deprecated bluez-btmon iputils-ping python3 py3-pip procps coreutils &&
-         export PIP_ROOT_USER_ACTION=ignore &&
-         python3 -m pip install paho-mqtt --break-system-packages &&
-         echo 'Container ready. Start batchfile startup.sh.' &&
-         ./startup.sh
-         "
+    working_dir: /app
+
+    command: >
+      sh ./startup.sh

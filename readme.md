@@ -13,9 +13,10 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED. To
       2. Edit the created tramsmitter, update the UUID to what you want it to be and activate/save the transmitter.
    2. Install an iBeacon app on your IPHone.
       1. .....
-2. Create a directory ***/your-path/presence/app*** for this docker container, and store the files **startup.sh** and **ibeacon-scan.py** in it.
-3. Copy **app/config_model.json** to **app/config.json** 
-4. Change the setting for your setup. 
+2. Create a directory ***/your-path/presence/app*** for this docker container
+3. Copy all files from GitHub ***/app*** directory to your ***/your-path/presence/app***.
+4. Copy **app/config_model.json** to **app/config.json**
+5. Change/adapt the setting to your setup.
    1. Explanation of variables the json config file:
 
    ``` text
@@ -45,7 +46,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED. To
       "ping_interval": "10",
       "dev_timeout": "120",
       "calculate_distance": "false",
-      "mqtt_ip": "192.168.1.100",
+      "mqtt_ip": "192.168.1.0",
       "mqtt_port": "1883",
       "mqtt_user": "",
       "mqtt_password": "",
@@ -69,7 +70,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED. To
    }
    ```
 
-5. Create a new Stack in portainer using the ***blescan.yaml*** model.
+6. Create a new Stack in portainer using the ***blescan.yaml*** model.
 
    ``` yaml
    services:
@@ -80,24 +81,21 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED. To
          privileged: true
          restart: unless-stopped
 
+         environment:
+            gitbranch: 'development'   # GitHub branch 'main' or 'development'
+            gitupdate: 'n'             # Force script update at startup container
+
          volumes:
             - /your-path/presence/app:/app
-            # - /var/run/dbus:/var/run/dbus  # Optional in case required.
 
          working_dir: /app
 
          command: >
-            sh -c "
-            apk add --no-cache bluez bluez-deprecated bluez-btmon iputils-ping python3 py3-pip procps coreutils &&
-            export PIP_ROOT_USER_ACTION=ignore &&
-            python3 -m pip install paho-mqtt --break-system-packages &&
-            echo 'Container ready. Start batchfile startup.sh.' &&
-            ./startup.sh
-            "     
+            sh ./startup.sh   
    ```
 
-6. Update all required environment variables for MQTT.
-7. Use the set UUID from BeaconScope in ScanDevices and remove any - or spaces and specify the Name and Host info (IP or DNS HostName) eg:
+7. Update all required environment variables for MQTT.
+8. Use the set UUID from BeaconScope in ScanDevices and remove any - or spaces and specify the Name and Host info (IP or DNS HostName) eg:
 
    ``` yaml
       MQTT_IP: '192.168.0.11'   # required
@@ -127,7 +125,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED. To
                },
    ```
 
-8. Update volumes to the path where you stored the startup.sh and ibeacon-scan.py files:
+9. Update volumes to the path where you stored the startup.sh and ibeacon-scan.py files:
 
    ``` yaml
       volumes:

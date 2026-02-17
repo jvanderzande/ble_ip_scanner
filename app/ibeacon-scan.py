@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+version = '1.1.0'
 ### Desc ####################################################################################################
 # This script will read the raw info from hcidump to determine the presence of BLE devices (phones) and
 # check for IP addresses by pinging them to determine if they are "home".
@@ -20,7 +21,7 @@ pinitdate = datetime.datetime.now()
 initdate = datetime.datetime.now() - datetime.timedelta(seconds=8)
 
 ### Load Configuration from JSON ######################################
-def load_config():
+def load_config(console=True):
     """Load configuration from JSON file """
     config = {}
     config_file = './config.json'
@@ -30,10 +31,10 @@ def load_config():
         try:
             with open(config_file, 'r') as f:
                 config = json.load(f)
-            print(f"[INFO] Configuration loaded from {config_file}")
+            if console: print(f"[INFO] Configuration loaded from {config_file}")
         except Exception as e:
-            print(f"[ERROR] Failed to load {config_file}: {e}")
-            print("[INFO] Falling back to environment variables")
+            if console: print(f"[ERROR] Failed to load {config_file}: {e}")
+            if console: print("[INFO] Falling back to environment variables")
 
     return config
 
@@ -48,6 +49,12 @@ def save_config(config, filename='./config.json'):
 
 # Load configuration
 config = load_config()
+firstrun = os.getenv('firstrun', 'n') == 'y'
+if firstrun or config.get('mqtt_ip', '192.168.1.0') == '192.168.1.0':
+    print(f"v{version} Initial startup retrying each 10 seconds until config.json is updated.")
+    while config.get('mqtt_ip', '192.168.1.0') == '192.168.1.0':
+        config = load_config(False)
+        sleep(10)
 loglevel = int(config.get('loglevel', '1'))  # 0=None 1=INFO 2=Verbose 3=Debug 9=trace
 log2file = (config.get('log2file', 'true')).lower() == 'true'
 
@@ -63,7 +70,7 @@ def printlog(msg, lvl=1, extrainfo='', alsoconsole=False):  # write to log file
 
 ### Config ####################################################################################################
 pihost = os.getenv('HOST', os.uname()[1]).lower()
-printlog("v1.0a Starting BLE scanning on: '" + pihost + "'",0,'',True)
+printlog(f"v{version} Starting BLE scanning on: '" + pihost + "'",0,'',True)
 
 # After xx Seconds no BLE try Ping
 BLETimeout = int(config.get('ble_timeout', '20'))
@@ -76,9 +83,6 @@ Calculate_Distance = (config.get('calculate_distance', 'false')).lower() == 'tru
 # MQTT Config
 MQTT_IP = config.get('mqtt_ip', '')
 MQTT_IP_port = int(config.get('mqtt_port', 1883))
-if not MQTT_IP:
-    printlog("ERROR: Required configuration `mqtt_ip` not found in config.json or environment.", 0, '', True)
-    sys.exit(1)
 # MQTT User & Password
 mqtt_user = config.get('mqtt_user', '')
 mqtt_password = config.get('mqtt_password', '')
