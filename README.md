@@ -124,8 +124,20 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
    2026-02-18 15:04:01 [1] pihost: domot1 
    2026-02-18 15:04:01 [1] BLETimeout: 20 PingInterval: 10 DevTimeout: 120 
    2026-02-18 15:04:01 [1] MQTT_IP: 192.168.0.10 MQTT_IP_port: 1883 MQTT_Topic: Presence MQTT_Retain: False 
-   2026-02-18 15:04:01 [1] ScanDevices: {"2F234454CF6D4A0FADF2F4911BA9ABC1": {"name": "Name_mine", "host": "s24-mine", "idx": 1, "target": "domoticz"}, 
-                                         "2F234454CF6D4A0FADF2F4911BA9ABC2": {"name": "Name_hers", "host": "192.168.1.11", "idx": 2, "target": "mqtt"}} 
+   2026-02-18 15:04:01 [1] ScanDevices: {
+         "2F234454CF6D4A0FADF2F4911BA9ABC1": {
+            "name": "Name_mine", 
+            "host": "s24-mine", 
+            "idx": 1, 
+            "target": "domoticz"
+         }, 
+         "2F234454CF6D4A0FADF2F4911BA9ABC2": {
+            "name": "Name_hers", 
+            "host": "192.168.1.11", 
+            "idx": 2, 
+            "target": "mqtt"
+         }
+      } 
    2026-02-18 15:04:01 [1] Calculate_Distance: True 
    2026-02-18 15:04:01 [1] >> Start Scanning: 
    Check for detail logging in ./log/ble_ip_scanner.log

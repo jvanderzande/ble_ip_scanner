@@ -1,6 +1,4 @@
 #!/usr/bin/python3
-version = os.getenv('GIT_RELEASE', '0.9.0')
-
 ### Desc ####################################################################################################
 # This script will read the raw info from hcidump to determine the presence of BLE devices (phones) and
 # check for IP addresses by pinging them to determine if they are "home".
@@ -15,6 +13,7 @@ import json
 import subprocess
 from threading import Thread
 
+version = os.getenv('GIT_RELEASE', 'v1.0.0')
 config_file = './config/config.json'
 
 def formattednow():
@@ -41,17 +40,6 @@ def load_config(console=True):
 
     return config
 
-# Load configuration
-config = load_config()
-firstrun = os.getenv('firstrun', 'n') == 'y'
-if firstrun or config.get('mqtt_ip', '192.168.1.0') == '192.168.1.0':
-    print(formattednow() + '[0]', f"v{version} Initial startup: retrying every 5 seconds until config.json is updated with required parameters.")
-    while config.get('mqtt_ip', '192.168.1.0') == '192.168.1.0':
-        config = load_config(False)
-        sleep(5)
-loglevel = int(config.get('loglevel', '1'))  # 0=None 1=INFO 2=Verbose 3=Debug 9=trace
-log2file = (config.get('log2file', 'true')).lower() == 'true'
-
 def printlog(msg, lvl=1, extrainfo='', alsoconsole=False):  # write to log file
     if log2file:
         if int(lvl) <= loglevel:
@@ -62,9 +50,23 @@ def printlog(msg, lvl=1, extrainfo='', alsoconsole=False):  # write to log file
         if int(lvl) <= loglevel:
             print(formattednow() + '(' + str(lvl) + ')', msg, extrainfo)
 
+
+# Load configuration
+config = load_config()
+firstrun = os.getenv('firstrun', 'n') == 'y'
+loglevel = 1
+log2file = True
+if firstrun or config.get('mqtt_ip', '192.168.1.0') == '192.168.1.0':
+    printlog(formattednow() + '[0]' + f"{version} Initial startup: retrying every 5 seconds until config.json is updated with required parameters.",0,'',True)
+    while config.get('mqtt_ip', '192.168.1.0') == '192.168.1.0':
+        config = load_config(False)
+        sleep(5)
+loglevel = int(config.get('loglevel', '1'))  # 0=None 1=INFO 2=Verbose 3=Debug 9=trace
+log2file = (config.get('log2file', 'true')).lower() == 'true'
+
 ### Config ####################################################################################################
 pihost = os.getenv('HOST', os.uname()[1]).lower()
-printlog(f"v{version} Starting BLE scanning on: '" + pihost + "'",0,'',True)
+printlog(f"{version} Starting BLE scanning on: '" + pihost + "'",0,'',True)
 
 # After xx Seconds no BLE try Ping
 BLETimeout = int(config.get('ble_timeout', '20'))
@@ -99,7 +101,7 @@ printlog("Loglevel: " + str(loglevel) + " Log2file: " + str(log2file),1,'',True)
 printlog("pihost: " + pihost,1,'',True)
 printlog("BLETimeout: " + str(BLETimeout) + " PingInterval: " + str(PingInterval) + " DevTimeout: " + str(DevTimeout),1,'',True)
 printlog("MQTT_IP: " + MQTT_IP + " MQTT_IP_port: " + str(MQTT_IP_port) + " MQTT_Topic: " + mqtttopic + " MQTT_Retain: " + str(mqttretain),1,'',True)
-printlog("ScanDevices: " + json.dumps(ScanDevices), 1, '', True)
+printlog("ScanDevices: " + json.dumps(ScanDevices,indent=3), 1, '', True)
 
 def reverse_uuid_bytes(u):
     # Accept either dashed or plain hex UUID string, reverse the 16 bytes,
