@@ -1,5 +1,6 @@
 #!/usr/bin/python3
-version = '1.1.0'
+version = os.getenv('GIT_RELEASE', '1.1.0')
+
 ### Desc ####################################################################################################
 # This script will read the raw info from hcidump to determine the presence of BLE devices (phones) and
 # check for IP addresses by pinging them to determine if they are "home".
