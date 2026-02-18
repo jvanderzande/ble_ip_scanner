@@ -1,0 +1,29 @@
+{
+  "loglevel": "1",
+  "log2file": "true",
+  "ble_timeout": "20",
+  "ping_interval": "10",
+  "dev_timeout": "120",
+  "calculate_distance": "false",
+  "mqtt_ip": "192.168.1.0",
+  "mqtt_port": "1883",
+  "mqtt_user": "",
+  "mqtt_password": "",
+  "mqtt_topic": "Presence",
+  "mqtt_domoticz_topic": "domoticz/in",
+  "mqtt_retain": "false",
+  "scan_devices": {
+    "b1bbb91b-91f4-f2ad-0f4a-6dcf5444232f": {
+      "name": "Phone1",
+      "host": "192.168.1.0",
+      "idx": 1,
+      "target": "domoticz"
+    },
+    "b2bbb91b-91f4-f2ad-0f4a-6dcf5444232f": {
+      "name": "Phone2",
+      "host": "192.168.1.0",
+      "idx": 2,
+      "target": "mqtt"
+    }
+  }
+}
