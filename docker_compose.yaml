@@ -1,0 +1,15 @@
+services:
+  ble_ip_scanner:
+    image: alpine:3.20
+    container_name: ble_ip_scanner
+    network_mode: host
+    privileged: true
+    restart: unless-stopped
+
+    environment:
+      TZ: 'Europe/Amsterdam'
+      #hci_device: 'hci0'       # default: hci0
+
+    volumes:
+      - /your-path/presence/app/config:/app/config
+      - /your-path/presence/app/log:/app/log
