@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-version = os.getenv('GIT_RELEASE', '1.1.0')
+version = os.getenv('GIT_RELEASE', '0.9.0')
 
 ### Desc ####################################################################################################
 # This script will read the raw info from hcidump to determine the presence of BLE devices (phones) and
