@@ -1,3 +1,2 @@
 local/
-app/config.json
-Dockerfile
+app/config/*config.json
