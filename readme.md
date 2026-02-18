@@ -137,7 +137,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
    -- starting hcitool lescan
    -- starting btmon → Python script ./ble_ip_scanner.py
    [INFO] Configuration loaded from ./config/config.json
-   v1.1.0 Initial startup: retrying every 5 seconds until config.json is updated.
+   2026-02-18 15:00:52 [0] v1.1.0 Initial startup: retrying every 5 seconds until config.json is updated.
    ```
 
 7. When you save the config.json file, the python scanning script will continue:
@@ -151,7 +151,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
    -- starting hcitool lescan
    -- starting btmon → Python script ./ble_ip_scanner.py
    [INFO] Configuration loaded from ./config/config.json
-   2026-02-18 15:04:01 v1.1.0 Initial startup: retrying every 5 seconds until config.json is updated.
+   2026-02-18 15:00:52 [0] v1.1.0 Initial startup: retrying every 5 seconds until config.json is updated.
    2026-02-18 15:04:01 [0] v1.1.0 Starting BLE scanning on: 'domot1' 
    2026-02-18 15:04:01 [1] ### Config ####################################### 
    2026-02-18 15:04:01 [1] Loglevel: 3 Log2file: True 
