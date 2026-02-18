@@ -3,6 +3,7 @@ echo '##### Startup script #####################################################
 echo "### Init bluetooth "
 cp /app/log/dev_presence.log /app/log/dev_presence_prev.log >/dev/null 2>&1
 rm /app/log/dev_presence.log >/dev/null 2>&1
+cp -n /app/config_model.json /app/config/config.json
 
 if [ -z "$hci_device" ]; then
    export hci_device='hci0'

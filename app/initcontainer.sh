@@ -29,11 +29,10 @@ fi
 # get required/updated files from github repository
 if [ "$gitupdate" = 'y' ]; then
    echo "== Check for updates in repository "$gitbranch" on GitHub ==="
-   wget -q -O /app/ble_ip_scanner.py.n       "https://github.com/jvanderzande/ble_ip_scanner/raw/refs/heads/${gitbranch}/app/ble_ip_scanner.py"
-   wget -q -O /app/startup.sh.n              "https://github.com/jvanderzande/ble_ip_scanner/raw/refs/heads/${gitbranch}/app/startup.sh"
-   wget -q -O /app/initcontainer.sh.n        "https://github.com/jvanderzande/ble_ip_scanner/raw/refs/heads/${gitbranch}/app/initcontainer.sh"
-   wget -q -O /app/config/config_model.json  "https://github.com/jvanderzande/ble_ip_scanner/raw/refs/heads/${gitbranch}/app/config/config_model.json"
-   cp -n /app/config/config_model.json /app/config/config.json
+   wget -q -O /app/ble_ip_scanner.py.n  "https://github.com/jvanderzande/ble_ip_scanner/raw/refs/heads/${gitbranch}/app/ble_ip_scanner.py"
+   wget -q -O /app/startup.sh.n         "https://github.com/jvanderzande/ble_ip_scanner/raw/refs/heads/${gitbranch}/app/startup.sh"
+   wget -q -O /app/initcontainer.sh.n   "https://github.com/jvanderzande/ble_ip_scanner/raw/refs/heads/${gitbranch}/app/initcontainer.sh"
+   wget -q -O /app/config_model.json    "https://github.com/jvanderzande/ble_ip_scanner/raw/refs/heads/${gitbranch}/app/config_model.json"
    # Check whether the /app/ble_ip_scanner.py.n file is different from /app/ble_ip_scanner.py
    if [ -f /app/ble_ip_scanner.py.n ]; then
       if ! cmp -s /app/ble_ip_scanner.py.n /app/ble_ip_scanner.py; then
