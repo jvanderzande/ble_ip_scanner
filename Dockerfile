@@ -17,7 +17,7 @@ RUN apk add --no-cache tzdata bluez bluez-deprecated bluez-btmon iputils-ping py
 		  mkdir -p /app/config && \
 		  mkdir -p /app/log
 
-COPY ./app/config/config_model.json /app/config_model.json
+COPY ./app/config_model.json  /app/
 COPY ./app/startup.sh         /app/
 COPY ./app/ble_ip_scanner.py  /app/
 
