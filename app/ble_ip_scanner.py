@@ -44,7 +44,7 @@ def load_config(console=True):
 config = load_config()
 firstrun = os.getenv('firstrun', 'n') == 'y'
 if firstrun or config.get('mqtt_ip', '192.168.1.0') == '192.168.1.0':
-    print(f"v{version} Initial startup: retrying every 5 seconds until config.json is updated.")
+    print(formattednow() + '[0]', f"v{version} Initial startup: retrying every 5 seconds until config.json is updated with required parameters.")
     while config.get('mqtt_ip', '192.168.1.0') == '192.168.1.0':
         config = load_config(False)
         sleep(5)
