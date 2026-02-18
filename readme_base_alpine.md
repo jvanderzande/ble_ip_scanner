@@ -1,4 +1,4 @@
-# BLE_IP_Scanner (development in progress!!!!)
+# BLE_IP_Scanner
 
 ## Description
 
@@ -7,42 +7,16 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
 
 ## Setup instructions
 
-### use all-in-one image
-
 1.
    1. Install [BeaconScope in android](https://play.google.com/store/apps/details?id=com.davidgyoungtech.beaconscanner) from the playstore.
       1. Select **transmit** and add an new tranmitter, option **iBeacon** and save the it with default UUID.
       2. Edit the created tramsmitter, update the UUID to what you want it to be and activate/save the transmitter.
    2. Install an iBeacon app on your IPHone.
       1. .....
-2. Create a new Stack in portainer using the **docker_compose.yaml*** model.
-
-   ``` yaml
-   services:
-   ble_ip_scanner:
-      image: jvdzande/ble_ip_scanner:latest
-      container_name: ble_ip_scanner
-      network_mode: host
-      privileged: true
-      restart: unless-stopped
-
-      environment:
-         TZ: 'Europe/Amsterdam'
-         #hci_device: 'hci0'       # default: hci0
-
-      volumes:
-         - /your-path/presence/app/config:/app/config
-         - /your-path/presence/app/log:/app/log
-   ```
-
-3. Update volumes to the path where you stored the startup.sh and ble_ip_scanner.py files:
-
-   ``` yaml
-      volumes:
-         - **/your-path/presence/app**:/app
-   ```
-
-4. Change/adapt the setting to your setup in configfile:***/your-path/presence*/app/config/config.json**.
+2. Create a directory ***/your-path/presence/app*** for this docker container
+3. Copy all files from GitHub ***/app*** directory to your ***/your-path/presence/app***.
+4. Copy **app/config_model.json** to **app/config.json**
+5. Change/adapt the setting to your setup.
    1. Explanation of variables the json config file:
 
    ``` text
@@ -96,7 +70,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
    }
    ```
 
-5. Use the set UUID from BeaconScope in ScanDevices and specify the Name and Host info (IP or DNS HostName) eg:
+6. Use the set UUID from BeaconScope in ScanDevices and specify the Name and Host info (IP or DNS HostName) eg:
 
    ``` yaml
       MQTT_IP: '192.168.0.11'   # required
@@ -126,46 +100,35 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
                },
    ```
 
-6. The docker log when running this image the first time:
+7. Create a new Stack in portainer using the ***blescan.yaml*** model.
 
-   ``` log
-   ##### Startup script ########################################################################################
-   ### Init bluetooth 
-   == check if the defined/wanted hci_device exists: hci0 - result hcitool dev: hci0
-   -- Bluetooth device found: hci0
-   -- hciconfig hci0 up
-   -- starting hcitool lescan
-   -- starting btmon → Python script ./ble_ip_scanner.py
-   [INFO] Configuration loaded from ./config/config.json
-   2026-02-18 15:00:52 [0] v1.1.0 Initial startup: retrying every 5 seconds until config.json is updated.
+   ``` yaml
+   services:
+      ble_ip_scanner:
+         image: alpine:3.20
+         container_name: ble_ip_scanner
+         network_mode: host
+         privileged: true
+         restart: unless-stopped
+
+         environment:
+            TZ: 'Europe/Amsterdam'
+            #hci_device: 'hci0'       # bluetooth device name (default: hci0)
+            #gitbranch: 'main'        # GitHub branch 'main' or 'development' (default: main)
+            #gitupdate: 'n'           # Force github update at startup container (default: n)
+
+         volumes:
+            - /your-path/presence/app:/app
+
+         working_dir: /app
+
+         command: >
+            sh ./startup.sh   
    ```
 
-7. When you save the config.json file, the python scanning script will continue:
+8. Update volumes to the path where you stored the startup.sh and ble_ip_scanner.py files:
 
-   ``` log
-   ##### Startup script ########################################################################################
-   ### Init bluetooth 
-   == check if the defined/wanted hci_device exists: hci0 - result hcitool dev: hci0
-   -- Bluetooth device found: hci0
-   -- hciconfig hci0 up
-   -- starting hcitool lescan
-   -- starting btmon → Python script ./ble_ip_scanner.py
-   [INFO] Configuration loaded from ./config/config.json
-   2026-02-18 15:00:52 [0] v1.1.0 Initial startup: retrying every 5 seconds until config.json is updated.
-   2026-02-18 15:04:01 [0] v1.1.0 Starting BLE scanning on: 'domot1' 
-   2026-02-18 15:04:01 [1] ### Config ####################################### 
-   2026-02-18 15:04:01 [1] Loglevel: 3 Log2file: True 
-   2026-02-18 15:04:01 [1] pihost: domot1 
-   2026-02-18 15:04:01 [1] BLETimeout: 20 PingInterval: 10 DevTimeout: 120 
-   2026-02-18 15:04:01 [1] MQTT_IP: 192.168.0.10 MQTT_IP_port: 1883 MQTT_Topic: Presence MQTT_Retain: False 
-   2026-02-18 15:04:01 [1] ScanDevices: {"2F234454CF6D4A0FADF2F4911BA9ABC1": {"name": "Name_mine", "host": "s24-mine", "idx": 1, "target": "domoticz"}, 
-                                         "2F234454CF6D4A0FADF2F4911BA9ABC2": {"name": "Name_hers", "host": "192.168.1.11", "idx": 2, "target": "mqtt"}} 
-   2026-02-18 15:04:01 [1] Calculate_Distance: True 
-   2026-02-18 15:04:01 [1] >> Start Scanning: 
-   Check for detail logging in ./log/dev_presence.log
+   ``` yaml
+      volumes:
+         - **/your-path/presence/app**:/app
    ```
-
-### instructions for use with standard alpine image as it was initially 
-
-**(more complex and not prefered anymore)**
-[See setup instructions for Alpine base image](readme_base_alpine.md)
