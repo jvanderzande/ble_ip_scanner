@@ -1,6 +1,4 @@
 #!/usr/bin/python3
-version = os.getenv('GIT_RELEASE', '0.9.0')
-
 ### Desc ####################################################################################################
 # This script will read the raw info from hcidump to determine the presence of BLE devices (phones) and
 # check for IP addresses by pinging them to determine if they are "home".
@@ -15,6 +13,7 @@ import json
 import subprocess
 from threading import Thread
 
+version = os.getenv('GIT_RELEASE', '0.9.0')
 config_file = './config/config.json'
 
 def formattednow():
@@ -99,7 +98,7 @@ printlog("Loglevel: " + str(loglevel) + " Log2file: " + str(log2file),1,'',True)
 printlog("pihost: " + pihost,1,'',True)
 printlog("BLETimeout: " + str(BLETimeout) + " PingInterval: " + str(PingInterval) + " DevTimeout: " + str(DevTimeout),1,'',True)
 printlog("MQTT_IP: " + MQTT_IP + " MQTT_IP_port: " + str(MQTT_IP_port) + " MQTT_Topic: " + mqtttopic + " MQTT_Retain: " + str(mqttretain),1,'',True)
-printlog("ScanDevices: " + json.dumps(ScanDevices), 1, '', True)
+printlog("ScanDevices: " + json.dumps(ScanDevices,indent=3), 1, '', True)
 
 def reverse_uuid_bytes(u):
     # Accept either dashed or plain hex UUID string, reverse the 16 bytes,
