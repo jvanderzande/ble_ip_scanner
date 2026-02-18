@@ -1,80 +1,26 @@
 #!/bin/sh
-echo '##### Startup ########################################################################################'
-if [ ! -f /init.done ]; then
-   echo '== Initializing container.'
-   apk add --no-cache bluez bluez-deprecated bluez-btmon iputils-ping python3 py3-pip procps coreutils
-   export PIP_ROOT_USER_ACTION=ignore
-   python3 -m pip install paho-mqtt --break-system-packages
-   echo '== Init container done.' > /init.done
-else
-   echo '== Container already initialized.'
-fi
-# check if config.json exists, else fore an update from github which will also init the config.json.
-if [ ! -f /app/config.json ]; then
-   export firstrun='y'
-   export gitupdate='y'
-   echo '### Initializing your setup.'
-   echo '== !!!! Update the config.json file to your needs and restart the container !!!'
-fi
-
-mkdir -p /app/log
-mkdir -p /app/config
-
-
-# Ensure $gitbranch is either 'main' or 'development'; default to 'master' otherwise
-if [ -z "$gitbranch" ] || { [ "$gitbranch" != "main" ] && [ "$gitbranch" != "development" ]; }; then
-   export gitbranch="main"
-fi
-# get required/updated files from github repository
-if [ "$gitupdate" = 'y' ]; then
-   echo "== Check for updates in repository "$gitbranch" on GitHub ==="
-   wget -q -O /app/ble_ip_scanner.py.n   "https://github.com/jvanderzande/ble_ip_scanner/raw/refs/heads/${gitbranch}/app/ble_ip_scanner.py"
-   wget -q -O /app/startup.sh.n   "https://github.com/jvanderzande/ble_ip_scanner/raw/refs/heads/${gitbranch}/app/startup.sh"
-   wget -q -O /app/config/config_model.json "https://github.com/jvanderzande/ble_ip_scanner/raw/refs/heads/${gitbranch}/app/config/config_model.json"
-   cp -n /app/config/config_model.json /app/config/config.json
-   # Check whether the /app/ble_ip_scanner.py.n file is different from /app/ble_ip_scanner.py
-   if [ -f /app/ble_ip_scanner.py.n ]; then
-      if ! cmp -s /app/ble_ip_scanner.py.n /app/ble_ip_scanner.py; then
-         mv /app/ble_ip_scanner.py.n /app/ble_ip_scanner.py
-         echo '-- Updated /app/ble_ip_scanner.py from GitHub'
-      fi
-   else
-      echo '-- file not downloaded: /app/ble_ip_scanner.py.n'
-   fi
-   # Check whether the /app/startup.sh.n file is different from /app/startup.sh
-   if [ -f /app/startup.sh.n ]; then
-      if ! cmp -s /app/startup.sh.n /app/startup.sh; then
-         echo '-- Updated /app/startup.sh from GitHub  && Restarting container'
-         echo $(cmp /app/startup.sh.n /app/startup.sh)
-         cp /app/startup.sh   /app/startup.sh.old
-         cp /app/startup.sh.n /app/startup.sh.new
-         mv /app/startup.sh.n /app/startup.sh && exit 9        # Update /app/startup.sh && Restart
-      fi
-   else
-      echo '-- file not downloaded: /app/startup.sh.n'
-   fi
-else
-   echo '-- No update needed from GitHub.'
-fi
-rm /app/startup.sh.n >/dev/null 2>&1
-rm /app/ble_ip_scanner.py.n >/dev/null 2>&1
-chmod +x /app/startup.sh
-echo '== Container ready.'
-
+echo '##### Startup script ########################################################################################'
 echo "### Init bluetooth "
 cp /app/log/dev_presence.log /app/log/dev_presence_prev.log >/dev/null 2>&1
 rm /app/log/dev_presence.log >/dev/null 2>&1
 
-echo "== list available devices:hcitool dev"
-hcitool dev
-
-echo "== get first available devices with hcitool dev"
-dev=$(hcitool dev | awk '$1 ~ /^hci/ {print $1; exit}')
+if [ -z "$hci_device" ]; then
+   export hci_device='hci0'
+fi
+dev=$(hcitool dev | awk -v dev="$hci_device" '$1 == dev {print $1; exit}')
+echo "== check if the defined/wanted hci_device exists: $hci_device - result hcitool dev: $dev"
+if [ -z "$dev" ]; then
+   firstdev=$(hcitool dev | awk '$1 ~ /^hci/ {print $1; exit}')
+   echo "== hci_device $hci_device not found, using first available device: $firstdev"
+   dev=$firstdev
+fi
 if [ -n "$dev" ]; then
    echo "-- Bluetooth device found: $dev"
 else
    echo "!! No Bluetooth device found!"
    echo "!! Retry in 10 seconds!"
+   echo "== list available devices:hcitool dev"
+   hcitool dev
    sleep 10
    exit 999
 fi

@@ -113,8 +113,10 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
          restart: unless-stopped
 
          environment:
-            gitbranch: 'main'   # GitHub branch 'main' or 'development'
-            gitupdate: 'n'      # Force script update at startup container
+            TZ: 'Europe/Amsterdam'
+            #hci_device: 'hci0'       # bluetooth device name (default: hci0)
+            #gitbranch: 'main'        # GitHub branch 'main' or 'development' (default: main)
+            #gitupdate: 'n'           # Force github update at startup container (default: n)
 
          volumes:
             - /your-path/presence/app:/app

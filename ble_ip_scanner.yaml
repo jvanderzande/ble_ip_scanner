@@ -10,10 +10,12 @@ services:
       - /your-path/presence/app:/app
 
     environment:
-      gitbranch: 'main'        # GitHub branch 'main' or 'development'
-      gitupdate: 'n'           # Force github update at startup container
+      TZ: 'Europe/Amsterdam'
+      #hci_device: 'hci0'       # bluetooth device name (default: hci0)
+      #gitbranch: 'main'        # GitHub branch 'main' or 'development' (default: main)
+      #gitupdate: 'n'           # Force github update at startup container (default: n)
 
     working_dir: /app
 
     command: >
-      sh ./startup.sh
+      sh ./initcontainer.sh
