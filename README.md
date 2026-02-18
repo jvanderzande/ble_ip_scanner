@@ -1,4 +1,4 @@
-# BLE_IP_Scanner (development in progress!!!!)
+# BLE_IP_Scanner
 
 ## Description
 
@@ -7,15 +7,15 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
 
 ## Setup instructions
 
-### use all-in-one image
-
 1.
    1. Install [BeaconScope in android](https://play.google.com/store/apps/details?id=com.davidgyoungtech.beaconscanner) from the playstore.
       1. Select **transmit** and add an new tranmitter, option **iBeacon** and save the it with default UUID.
       2. Edit the created tramsmitter, update the UUID to what you want it to be and activate/save the transmitter.
    2. Install an iBeacon app on your IPHone.
       1. .....
-2. Create a new Stack in portainer using the **docker_compose.yaml*** model.
+
+2. Create a new Stack in portainer using the **docker_compose.yaml*** model, 
+   and update **volumes** to the path where you want the Config and Log directories:
 
    ``` yaml
    services:
@@ -35,14 +35,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
          - /your-path/presence/app/log:/app/log
    ```
 
-3. Update volumes to the path where you stored the startup.sh and ble_ip_scanner.py files:
-
-   ``` yaml
-      volumes:
-         - **/your-path/presence/app**:/app
-   ```
-
-4. Change/adapt the setting to your setup in configfile:***/your-path/presence*/app/config/config.json**.
+3. Change/adapt the setting to your setup in configfile:***/your-path/presence*/app/config/config.json**.
    1. Explanation of variables the json config file:
 
    ``` text
@@ -60,9 +53,12 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
    - mqtt_domoticz_topic: 'domoticz/in' # defaults to domoticz/in when idx is provive in device table
    - mqtt_retain: false         # defaults to false
    - scan_devices:              # Define your devices here per UUID. define idx when you want the MQTT msg send to domoticz/in using the domoticz format
+         Use the set UUID from BeaconScope in ScanDevices and specify the Name and Host info (IP or DNS HostName)
+         Define the idx in the user record in case you like to send a "domoticz/in" mqtt update directly to Domoticz.
+         Define "target" optional: "mqtt" or "domoticz". Defaults to "domoticz/in" when idx > 0 else to "mqtt_topic"
    ```
 
-   1. Example json config file:
+   2. Example json config file:
 
    ``` json
       {
@@ -96,37 +92,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
    }
    ```
 
-5. Use the set UUID from BeaconScope in ScanDevices and specify the Name and Host info (IP or DNS HostName) eg:
-
-   ``` yaml
-      MQTT_IP: '192.168.0.11'   # required
-      ScanDevices: |
-               {
-                  "2F234454CF6D4A0FADF2F4911BA9ABC1": {
-                     "name": "Name_mine",
-                     "host": "s24-Mine"
-                  },
-                  "2F234454CF6D4A0FADF2F4911BA9ABC2": {
-                     "name": "Name_hers",
-                     "host": "192.168.0.222"
-                  }
-               }
-   ```
-
-   Define the idx in the useer record in case you like to send a "domoticz/in" mqtt update directly to Domoticz:
-   Define "target" optional: "mqtt" or "domoticz". Defaults to "domoticz/in" when idx > 0 else to "_MQTT_Topic_"
-
-   ``` yaml
-               {
-               "2F234454CF6D4A0FADF2F4911BA9ABC1": {
-                  "name": "Name_mine",
-                  "host": "s24-Mine",
-                  "idx": 123,
-                  "target": "mqtt"
-               },
-   ```
-
-6. The docker log when running this image the first time:
+4. Example docker log when running this image the first time as it will copy the model config and pause untill you have updated it:
 
    ``` log
    ##### Startup script ########################################################################################
@@ -137,10 +103,10 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
    -- starting hcitool lescan
    -- starting btmon → Python script ./ble_ip_scanner.py
    [INFO] Configuration loaded from ./config/config.json
-   2026-02-18 15:00:52 [0] v1.1.0 Initial startup: retrying every 5 seconds until config.json is updated.
+   2026-02-18 15:00:52 [0] v1.0.0 Initial startup: retrying every 5 seconds until config.json is updated.
    ```
 
-7. When you save the config.json file, the python scanning script will continue:
+5. When you save the config.json file, the python scanning script will continue:
 
    ``` log
    ##### Startup script ########################################################################################
@@ -151,8 +117,8 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
    -- starting hcitool lescan
    -- starting btmon → Python script ./ble_ip_scanner.py
    [INFO] Configuration loaded from ./config/config.json
-   2026-02-18 15:00:52 [0] v1.1.0 Initial startup: retrying every 5 seconds until config.json is updated.
-   2026-02-18 15:04:01 [0] v1.1.0 Starting BLE scanning on: 'domot1' 
+   2026-02-18 15:00:52 [0] v1.0.0 Initial startup: retrying every 5 seconds until config.json is updated.
+   2026-02-18 15:04:01 [0] v1.0.0 Starting BLE scanning on: 'domot1' 
    2026-02-18 15:04:01 [1] ### Config ####################################### 
    2026-02-18 15:04:01 [1] Loglevel: 3 Log2file: True 
    2026-02-18 15:04:01 [1] pihost: domot1 
@@ -164,5 +130,3 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
    2026-02-18 15:04:01 [1] >> Start Scanning: 
    Check for detail logging in ./log/ble_ip_scanner.log
    ```
-
-### instructions for use with standard alpine image as it was initially 
