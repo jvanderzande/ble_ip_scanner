@@ -21,7 +21,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
 
    ``` text
    - loglevel: 1                # loglevel 0=None 1=INFO 2=Verbose 3=Debug     default=1
-   - log2file: true             # Write logging to file /app/dev_presence.log  default=true
+   - log2file: true             # Write logging to file /app/ble_ip_scanner.log  default=true
    - dev_timeout: 120           # Time without BLE packets and failing pings to remort device to start checking with Ping. Defaults to 120
    - ble_timeout: 20            # Time without BLE packet to start checking with Ping. Defaults to 20
    - ping_interval: 10          # Interval time between Ping checks. Defaults to 10

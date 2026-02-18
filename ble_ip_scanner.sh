@@ -27,8 +27,8 @@ sleep 2
 echo "- list available devices:hcitool dev"
 hcitool dev
 mkdir -p log
-cp log/dev_presence.log log/dev_presence_prev.log >/dev/null 2>&1
-rm log/dev_presence.log >/dev/null 2>&1
+cp log/ble_ip_scanner.log log/ble_ip_scanner_prev.log >/dev/null 2>&1
+rm log/ble_ip_scanner.log >/dev/null 2>&1
 
 echo "- get first available devices with hcitool dev"
 dev=$(hcitool dev | awk '$1 ~ /^hci/ {print $1; exit}')
