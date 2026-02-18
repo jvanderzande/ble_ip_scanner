@@ -15,7 +15,8 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
       1. .....
 
 2. Create a new Stack in portainer using the **docker_compose.yaml*** model, 
-   and update **volumes** to the path where you want the Config and Log directories:
+   and update **volumes** to the path where you want the Config and Log directories and start the stack.
+   This will create the required config.json file as shown at item 4.
 
    ``` yaml
    services:
@@ -35,7 +36,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
          - /your-path/presence/app/log:/app/log
    ```
 
-3. Change/adapt the setting to your setup in configfile:***/your-path/presence*/app/config/config.json**.
+3. Open and change/adapt the settings to your setup in configfile:***/your-path/presence*/app/config/config.json**.
    1. Explanation of variables the json config file:
 
    ``` text
