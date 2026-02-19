@@ -74,23 +74,26 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
    __Explanation of variables the json config file:__
 
    ``` text
+   Required:
+   - mqtt_ip: '192.168.0.11'    # MQTT server IP address or Hostname.
+   - scan_devices:              # Define your devices here per UUID. define idx when you want the MQTT msg send to domoticz/in using the domoticz format
+         Use the set UUID from BeaconScope in ScanDevices and specify the Name and Host info (IP or DNS HostName)
+         Define the idx in the user record in case you like to send a "domoticz/in" mqtt update directly to Domoticz.
+         Define "target" optional: "mqtt" or "domoticz". Defaults to "domoticz/in" when idx > 0 else to "mqtt_topic"
+
+   Optional:
    - loglevel: 1                # loglevel 0=None 1=INFO 2=Verbose 3=Debug     default=1
    - log2file: true             # Write logging to file /app/ble_ip_scanner.log  default=true
    - dev_timeout: 120           # Time without BLE packets and failing pings to remort device to start checking with Ping. Defaults to 120
    - ble_timeout: 20            # Time without BLE packet to start checking with Ping. Defaults to 20
    - ping_interval: 10          # Interval time between Ping checks. Defaults to 10
    - calculate_distance: false  # Calculate distance between devices, MQTT msg will contain RSSI & DIST fields. Defaults to false
-   - mqtt_ip: '192.168.0.11'    # MQTT server IP address or Hostname.
    - mqtt_port: '1883'          # MQTT port, defaults to 1883
    - mqtt_user: ''              # '' for both User&Password means no security
    - mqtt_password: ''          # 
    - mqtt_topic: 'Presence'     # defaults to "Presence" resulting in mqtt topic: Presence/hostname-of-server/UUID-of-device
    - mqtt_domoticz_topic: 'domoticz/in' # defaults to domoticz/in when idx is provive in device table
    - mqtt_retain: false         # defaults to false
-   - scan_devices:              # Define your devices here per UUID. define idx when you want the MQTT msg send to domoticz/in using the domoticz format
-         Use the set UUID from BeaconScope in ScanDevices and specify the Name and Host info (IP or DNS HostName)
-         Define the idx in the user record in case you like to send a "domoticz/in" mqtt update directly to Domoticz.
-         Define "target" optional: "mqtt" or "domoticz". Defaults to "domoticz/in" when idx > 0 else to "mqtt_topic"
    ```
 
 4. Example docker log when running this image the first time as it will copy the model config and pause untill you have updated it:

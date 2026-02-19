@@ -13,7 +13,7 @@ import json
 import subprocess
 from threading import Thread
 
-version = os.getenv('GIT_RELEASE', 'v1.0.0')
+version = os.getenv('GIT_RELEASE', 'v1.0')
 config_file = './config/config.json'
 
 def formattednow():
