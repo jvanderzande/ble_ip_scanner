@@ -215,8 +215,8 @@ def updatedevice(action, UUID, state="", type=""):
         # Send to MQTT to to defined topic
         payload = ('{'
             + '"action":"' + action + '"'
-            + '"name":"' + urec["name"] + '"'
-            + '"idx":"' + str(urec["idx"]) + '"'
+            + ',"name":"' + urec["name"] + '"'
+            + ',"idx":"' + str(urec["idx"]) + '"'
             + ',"type":"' + type + '"'
             + ',"state":"' + state + '"'
         )
