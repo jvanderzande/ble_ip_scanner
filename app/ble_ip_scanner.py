@@ -99,6 +99,7 @@ if not ScanDevices:
 printlog("### Config #######################################",1,'',True)
 printlog("Loglevel: " + str(loglevel) + " Log2file: " + str(log2file),1,'',True)
 printlog("pihost: " + pihost,1,'',True)
+printlog("HCI interface: " + os.getenv('hci_device', '?'),1,'',True)
 printlog("BLETimeout: " + str(BLETimeout) + " PingInterval: " + str(PingInterval) + " DevTimeout: " + str(DevTimeout),1,'',True)
 printlog("MQTT_IP: " + MQTT_IP + " MQTT_IP_port: " + str(MQTT_IP_port) + " MQTT_Topic: " + mqtttopic + " MQTT_Retain: " + str(mqttretain),1,'',True)
 printlog("ScanDevices: " + json.dumps(ScanDevices,indent=3), 1, '', True)
@@ -135,15 +136,16 @@ if ScanDevices:
                 'name': meta.get('name', ''),
                 'idx': int(meta.get('idx', 0)),
                 'state': False,
-                'lastcheck': pinitdate,
-                'lastupdate': pinitdate,
+                'tslaston': initdate,
+                'tslastmqttupd': initdate,
+                'sendmqtt': False,
                 'host': meta.get('host', ''),
                 'rssi': 0,
                 'txpower': -59,
                 'dist': 0,
                 'dist_measurements': [],
                 'lasttype': '',
-                'lastpingcheck': pinitdate,
+                'tslastpingcheck': pinitdate,
                 'target': meta.get('target', 'domoticz' if int(meta.get('idx', 0)) > 0 else 'mqtt').lower()
             }
             # avoid serializing the full record (contains datetimes) — log only core fields
@@ -192,7 +194,9 @@ def updatedevice(action, UUID, state="", type=""):
 
     State = "On" if urec["state"] else "Off"
     # Set last Changed Type when state is changed
-    printlog("=> " + ("MqttChg" if type == "c" else "MqttUpd") + ": "+ urec["target"] + " " + urec["name"] + " State:" + State + " LastType:" + urec["lasttype"], 2)
+    printlog("=> " + (" Changed" if action == "c" else "Lifeline") + ": "+ urec["target"] + " " + urec["name"] + " State:" + State + " LastType:" + urec["lasttype"], 2)
+
+    urec["tslastmqttupd"] = datetime.datetime.now()
 
     # Set state when action is Update / lifeline
     if action == "u":
@@ -204,13 +208,16 @@ def updatedevice(action, UUID, state="", type=""):
     if urec["target"] == "domoticz" and urec["idx"] > 0:
         # Send to MQTT to Domoticz
         ## Only send Changes to Domoticz
-        if action == "c":
-            sendmqttmsg(dmqtttopic, '{'
-                + '"command": "switchlight"'
-                + ',"idx":' + str(urec["idx"])
-                + ',"switchcmd": "' + state + '"'
-                + "}"
-            )
+        payload = ('{'
+            + '"command": "switchlight"'
+            + ',"idx":' + str(urec["idx"])
+            + ',"switchcmd": "' + state + '"'
+        )
+        # No Event trigger on Lifeline update
+        if action == "u":
+            payload += ',"parse": false'
+        payload += "}"
+        sendmqttmsg(dmqtttopic, payload)
     else:
         # Send to MQTT to to defined topic
         payload = ('{'
@@ -226,9 +233,6 @@ def updatedevice(action, UUID, state="", type=""):
         payload += "}"
         sendmqttmsg(mqtttopic + "/" + pihost+"/" + str(urec["uuid"]), payload )
 
-    # Reset distance measurements to start fresh
-    urec["dist_measurements"] = []
-
 def sendmqttmsg(topic, payload):
     printlog("Publishing " + str(payload) + " to topic: " + topic, 3)
     try:
@@ -242,7 +246,7 @@ def sendmqttmsg(topic, payload):
         printlog("Publishing " + str(payload) + " to topic: " + topic + " ERROR: " + str(e), 0, '', True)
 
 def thread_backgroundprocess():
-    checktimeout = datetime.datetime.now() - datetime.timedelta(seconds=60)
+    ## inital delay this thread a bit to start the main process
     sleep(5)
     while True:
         # Loop through devices records for:
@@ -255,60 +259,58 @@ def thread_backgroundprocess():
             #####################################################################
             # check ping in separate thread every 'PingInterval(10)' seconds when not updated for 'BLETimeout(20)' seconds by BLE
             if (urec["host"] != ""
-            and (datetime.datetime.now() - urec["lastcheck"]).total_seconds() >= BLETimeout
-            and (datetime.datetime.now() - urec["lastpingcheck"]).total_seconds() >= PingInterval) :
-                if (datetime.datetime.now() - urec["lastcheck"]).total_seconds() >= BLETimeout:
-                    printlog(urec["name"] + " start ping BLETIMEOUT " + str(BLETimeout) + " <= " + str((datetime.datetime.now() - urec["lastcheck"]).total_seconds()), 3)
-                if (datetime.datetime.now() - urec["lastpingcheck"]).total_seconds() >= PingInterval :
-                    printlog(urec["name"] + " start ping PingInterval " + str(PingInterval) +  " <= " + str((datetime.datetime.now() - urec["lastpingcheck"]).total_seconds()), 3)
+            and (datetime.datetime.now() - urec["tslaston"]).total_seconds() >= BLETimeout
+            and (datetime.datetime.now() - urec["tslastpingcheck"]).total_seconds() >= PingInterval) :
+                if (datetime.datetime.now() - urec["tslaston"]).total_seconds() >= BLETimeout:
+                    printlog(urec["name"] + " start ping BLETIMEOUT " + str(BLETimeout) + " <= " + str((datetime.datetime.now() - urec["tslaston"]).total_seconds()), 9)
+                if (datetime.datetime.now() - urec["tslastpingcheck"]).total_seconds() >= PingInterval :
+                    printlog(urec["name"] + " start ping PingInterval " + str(PingInterval) +  " <= " + str((datetime.datetime.now() - urec["tslastpingcheck"]).total_seconds()), 9)
 
+                # Start ping thread
                 pworker = Thread(target=thread_pinger, args=(UUID,), daemon=True)
                 pworker.start()
-                urec["lastpingcheck"] = datetime.datetime.now()
+                urec["tslastpingcheck"] = datetime.datetime.now()
 
             # check for down when not updated for "DevTimeout" seconds
-            if ( urec["state"] and (datetime.datetime.now() - urec["lastcheck"]).total_seconds() > DevTimeout):
+            if ( urec["state"] and (datetime.datetime.now() - urec["tslaston"]).total_seconds() > DevTimeout):
                 urec["state"] = False
-                urec["lastcheck"] = datetime.datetime.now()
-                urec["lastupdate"] = datetime.datetime.now()
                 printlog(urec["name"] + " Changed to Offline.")
                 updatedevice("c", UUID, "Off")
 
             # send update each minute as lifeline to mqtt
-            if (datetime.datetime.now() - urec["lastupdate"]).total_seconds() > 58:
-                ### Send Update
-                urec["lastupdate"] = datetime.datetime.now()
+            if (datetime.datetime.now() - urec["tslastmqttupd"]).total_seconds() > 58:
                 updatedevice("u", UUID)
 
-        sleep(2)
+        sleep(1)
 
 
 # thread code : wraps system ping command
 def thread_pinger(UUID):
     # ping it
-
     urec = TelBLE[UUID]
     State = "On" if urec["state"] else "Off"
-    printlog(">> thread_pinger: start ping for " + urec["name"] + " check: " + urec["host"] + " current state:" + State, 3)
+    printlog(">> start ping for " + urec["name"] + " check: " + urec["host"] + " current state:" + State, 3)
     pingstate = subprocess.call("ping -q -c 1 -W 1 " + urec["host"] + " > /dev/null 2>/dev/null", shell=True)
     if pingstate == 0:
-        # Link to table again in case it was updated in the mean time
-        urec = TelBLE[UUID]
-        if not urec["state"]:
-            printlog(urec["name"] + " changed to On -> Ping " + urec["host"])
-            urec["lastupdate"] = datetime.datetime.now()
-            updatedevice("c", UUID, "On", "Ping")
-        else:
+        # Pink OK -> Check current state
+        if urec["state"]:
             if urec["lasttype"] != "Ping":
-                #if loglevel:
-                printlog("-> " + urec["name"] + " changed to Ping UP", 2)
+                printlog("<< " + urec["name"] + " changed to Ping UP", 2)
             else:
                 printlog("<< " + urec["name"] + " Ping OK " + urec["host"], 3)
-        urec["lastcheck"] = datetime.datetime.now()
+        else:
+            printlog(urec["name"] + " initially changed to On -> Ping " + urec["host"])
+            updatedevice("c", UUID, "On", "Ping")
+        urec["lasttype"] = "Ping"
         urec["state"] = True
+        urec["tslaston"] = datetime.datetime.now()
 
     else:
         printlog("< Ping " + urec["name"] + " Failed. " + str(pingstate), 2)
+
+    urec["tslastpingcheck"] = datetime.datetime.now()
+
+
 
 
 ###################################################################################################
@@ -355,14 +357,14 @@ while True:
 
         # Receive iBeacon for known device
         if not TelBLE[UUID_key]["state"]:
-            printlog(TelBLE[UUID_key]["name"] + " changed to On -> BLE. ", 2)
+            printlog(TelBLE[UUID_key]["name"] + " initially changed to On -> BLE. ")
             TelBLE[UUID_key]["state"] = True
             # Send this update immediately when device is processed
             TelBLE[UUID_key]["sendmqtt"] = True
         elif TelBLE[UUID_key]["lasttype"] != "BLE":
             printlog("-> " + TelBLE[UUID_key]["name"] + " changed to BLE UP")
 
-        TelBLE[UUID_key]["lastcheck"] = datetime.datetime.now()
+        TelBLE[UUID_key]["tslaston"] = datetime.datetime.now()
         TelBLE[UUID_key]["lasttype"] = "BLE"
         continue
 
@@ -385,6 +387,7 @@ while True:
                 urec["rssi"] = 0
                 urec["dist"] = 0
 
+            urec["tslaston"] = datetime.datetime.now()
             if Calculate_Distance:
                 printlog("-> UUID: %s -> %10s RSSI=%d TX=%d Dist=%.2f AVGDist=%.2f" % (UUID_key, urec["name"], urec["rssi"], urec["txpower"], mDist, urec["dist"]), 3)
             else:
@@ -393,8 +396,8 @@ while True:
             if urec["sendmqtt"]:
                 ### Send state Update as it changed
                 updatedevice("c", UUID_key, "On", "BLE")
-                urec["lastupdate"] = datetime.datetime.now()
                 urec["sendmqtt"] = False
+
 
         UUID_key = None
 

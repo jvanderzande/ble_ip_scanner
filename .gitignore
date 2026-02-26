@@ -1,2 +1,3 @@
 local/
+Nodered/
 app/config/*config.json
