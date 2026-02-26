@@ -10,10 +10,12 @@ fi
 if [ -z "$hci_device" ]; then
    export hci_device='hci0'
 fi
-dev=$(hcitool dev | awk -v dev="$hci_device" '$1 == dev {print $1; exit}')
+# Use hciconfig to list devices and check for the desired hci_device
+dev=$(hciconfig | awk -v dev="$hci_device" '/^([a-zA-Z0-9]+):/ {if ($1 == dev ":") {print substr($1, 1, length($1)-1); exit}}')
 echo "== check if the defined/wanted hci_device exists: $hci_device - result hcitool dev: $dev"
 if [ -z "$dev" ]; then
-   firstdev=$(hcitool dev | awk '$1 ~ /^hci/ {print $1; exit}')
+   # Use hciconfig to find the first available hci device
+   firstdev=$(hciconfig | awk '/^([a-zA-Z0-9]+):/ {print substr($1, 1, length($1)-1); exit}')
    echo "== hci_device $hci_device not found, using first available device: $firstdev"
    dev=$firstdev
 fi
@@ -28,8 +30,8 @@ else
    date >> /app/log/ble_ip_scanner.log
    echo "!! No Bluetooth device found!" >> /app/log/ble_ip_scanner.log
    echo "!! Retry in 10 seconds!"  >> /app/log/ble_ip_scanner.log
-   echo "== list available devices:hcitool dev"  >> /app/log/ble_ip_scanner.log
-   hcitool dev >> /app/log/ble_ip_scanner.log
+   echo "== list available devices:hciconfig"  >> /app/log/ble_ip_scanner.log
+   hciconfig >> /app/log/ble_ip_scanner.log
    echo "Startup failed." > /startup.failed
    sleep 10
    exit 999
@@ -44,7 +46,7 @@ echo "-- hciconfig $dev up"
 hciconfig $dev up
 
 echo "-- starting hcitool lescan"
-hcitool lescan --duplicates --passive 1>/dev/null &
+hcitool -i $dev lescan --duplicates --passive 1>/dev/null &
 
 echo "-- starting btmon → Python script ./ble_ip_scanner.py"
 stdbuf -oL btmon | python3 -u ./ble_ip_scanner.py
