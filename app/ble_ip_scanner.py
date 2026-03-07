@@ -295,11 +295,11 @@ def thread_pinger(UUID):
         # Pink OK -> Check current state
         if urec["state"]:
             if urec["lasttype"] != "Ping":
-                printlog("<< " + urec["name"] + " changed to Ping UP", 2)
+                printlog(urec["name"] + " changed to Ping UP")
             else:
                 printlog("<< " + urec["name"] + " Ping OK " + urec["host"], 3)
         else:
-            printlog(urec["name"] + " initially changed to On -> Ping " + urec["host"])
+            printlog(urec["name"] + " changed to On -> Ping " + urec["host"])
             updatedevice("c", UUID, "On", "Ping")
         urec["lasttype"] = "Ping"
         urec["state"] = True
@@ -357,12 +357,12 @@ while True:
 
         # Receive iBeacon for known device
         if not TelBLE[UUID_key]["state"]:
-            printlog(TelBLE[UUID_key]["name"] + " initially changed to On -> BLE. ")
+            printlog(TelBLE[UUID_key]["name"] + " changed to On -> BLE. ")
             TelBLE[UUID_key]["state"] = True
             # Send this update immediately when device is processed
             TelBLE[UUID_key]["sendmqtt"] = True
         elif TelBLE[UUID_key]["lasttype"] != "BLE":
-            printlog("-> " + TelBLE[UUID_key]["name"] + " changed to BLE UP")
+            printlog(TelBLE[UUID_key]["name"] + " changed to BLE UP")
 
         TelBLE[UUID_key]["tslaston"] = datetime.datetime.now()
         TelBLE[UUID_key]["lasttype"] = "BLE"
