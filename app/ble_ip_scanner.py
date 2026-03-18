@@ -69,11 +69,11 @@ pihost = os.getenv('HOST', os.uname()[1]).lower()
 printlog(f"{version} Starting BLE scanning on: '" + pihost + "'",0,'',True)
 
 # After xx Seconds no BLE try Ping
-BLETimeout = int(config.get('ble_timeout', '20'))
+ble_timeout = int(config.get('ble_timeout', '20'))
 # Ping every xx seconds
-PingInterval = int(config.get('ping_interval', '10'))
+ping_interval = int(config.get('ping_interval', '10'))
 # After xx Seconds to go OFF when not receiving BLE packets or Ping
-DevTimeout = int(config.get('dev_timeout', '120'))
+dev_timeout = int(config.get('dev_timeout', '120'))
 # Retrieve RSSI & TX Power to calculate the approx distance (5 measures average)
 Calculate_Distance = (config.get('calculate_distance', 'false')).lower() == 'true'
 # MQTT Config
@@ -100,7 +100,7 @@ printlog("### Config #######################################",1,'',True)
 printlog("Loglevel: " + str(loglevel) + " Log2file: " + str(log2file),1,'',True)
 printlog("pihost: " + pihost,1,'',True)
 printlog("HCI interface: " + os.getenv('hci_device', '?'),1,'',True)
-printlog("BLETimeout: " + str(BLETimeout) + " PingInterval: " + str(PingInterval) + " DevTimeout: " + str(DevTimeout),1,'',True)
+printlog("ble_timeout: " + str(ble_timeout) + " ping_interval: " + str(ping_interval) + " dev_timeout: " + str(dev_timeout),1,'',True)
 printlog("MQTT_IP: " + MQTT_IP + " MQTT_IP_port: " + str(MQTT_IP_port) + " MQTT_Topic: " + mqtttopic + " MQTT_Retain: " + str(mqttretain),1,'',True)
 printlog("ScanDevices: " + json.dumps(ScanDevices,indent=3), 1, '', True)
 
@@ -135,6 +135,9 @@ if ScanDevices:
                 'uuid': uuid,
                 'name': meta.get('name', ''),
                 'idx': int(meta.get('idx', 0)),
+                'ble_timeout': int(meta.get('ble_timeout', ble_timeout)),
+                'ping_interval': int(meta.get('ping_interval', ping_interval)),
+                'dev_timeout': int(meta.get('dev_timeout', dev_timeout)),
                 'state': False,
                 'tslaston': initdate,
                 'tslastmqttupd': initdate,
@@ -152,6 +155,9 @@ if ScanDevices:
             safe_record = {
                 'name': TelBLE[rev].get('name', ''),
                 'host': TelBLE[rev].get('host', ''),
+                'ble_timeout': TelBLE[rev].get('ble_timeout', ''),
+                'ping_interval': TelBLE[rev].get('ping_interval', ''),
+                'dev_timeout': TelBLE[rev].get('dev_timeout', ''),
                 'idx': TelBLE[rev].get('idx', 0),
                 'target': TelBLE[rev].get('target', '')
             }
@@ -257,22 +263,22 @@ def thread_backgroundprocess():
         for UUID in tuuids:
             urec = TelBLE[UUID]
             #####################################################################
-            # check ping in separate thread every 'PingInterval(10)' seconds when not updated for 'BLETimeout(20)' seconds by BLE
+            # check ping in separate thread every 'ping_interval(10)' seconds when not updated for 'ble_timeout(20)' seconds by BLE
             if (urec["host"] != ""
-            and (datetime.datetime.now() - urec["tslaston"]).total_seconds() >= BLETimeout
-            and (datetime.datetime.now() - urec["tslastpingcheck"]).total_seconds() >= PingInterval) :
-                if (datetime.datetime.now() - urec["tslaston"]).total_seconds() >= BLETimeout:
-                    printlog(urec["name"] + " start ping BLETIMEOUT " + str(BLETimeout) + " <= " + str((datetime.datetime.now() - urec["tslaston"]).total_seconds()), 9)
-                if (datetime.datetime.now() - urec["tslastpingcheck"]).total_seconds() >= PingInterval :
-                    printlog(urec["name"] + " start ping PingInterval " + str(PingInterval) +  " <= " + str((datetime.datetime.now() - urec["tslastpingcheck"]).total_seconds()), 9)
+            and (datetime.datetime.now() - urec["tslaston"]).total_seconds() >= urec["ble_timeout"]
+            and (datetime.datetime.now() - urec["tslastpingcheck"]).total_seconds() >= urec["ping_interval"]) :
+                if (datetime.datetime.now() - urec["tslaston"]).total_seconds() >= urec["ble_timeout"]:
+                    printlog(urec["name"] + " start ping ble_timeout " + str(urec["ble_timeout"]) + " <= " + str((datetime.datetime.now() - urec["tslaston"]).total_seconds()), 9)
+                if (datetime.datetime.now() - urec["tslastpingcheck"]).total_seconds() >= urec["ping_interval"] :
+                    printlog(urec["name"] + " start ping ping_interval " + str(urec["ping_interval"]) +  " <= " + str((datetime.datetime.now() - urec["tslastpingcheck"]).total_seconds()), 9)
 
                 # Start ping thread
                 pworker = Thread(target=thread_pinger, args=(UUID,), daemon=True)
                 pworker.start()
                 urec["tslastpingcheck"] = datetime.datetime.now()
 
-            # check for down when not updated for "DevTimeout" seconds
-            if ( urec["state"] and (datetime.datetime.now() - urec["tslaston"]).total_seconds() > DevTimeout):
+            # check for down when not updated for "dev_timeout" seconds
+            if ( urec["state"] and (datetime.datetime.now() - urec["tslaston"]).total_seconds() > urec["dev_timeout"]):
                 urec["state"] = False
                 printlog(urec["name"] + " Changed to Offline.")
                 updatedevice("c", UUID, "Off")

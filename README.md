@@ -56,15 +56,17 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
       "mqtt_retain": "false",
       "scan_devices": {
          "a0aaa91b-91f4-f2ad-0f4a-6dcf5444232f": {
-            "name": "Phone1",
+            "name": "Name_mine",
             "host": "192.168.1.10",
             "idx": 1,
             "target": "domoticz"
          },
          "b1bbb91b-91f4-f2ad-0f4a-6dcf5444232f": {
-            "name": "Phone2",
+            "name": "Name_hers",
             "host": "192.168.1.11",
             "idx": 2,
+            "ble_timeout": "30",
+            "dev_timeout": "180",
             "target": "mqtt"
          }
       }
@@ -84,9 +86,6 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
    Optional:
    - loglevel: 1                # loglevel 0=None 1=INFO 2=Verbose 3=Debug     default=1
    - log2file: true             # Write logging to file /app/ble_ip_scanner.log  default=true
-   - dev_timeout: 120           # Time without BLE packets and failing pings to remort device to start checking with Ping. Defaults to 120
-   - ble_timeout: 20            # Time without BLE packet to start checking with Ping. Defaults to 20
-   - ping_interval: 10          # Interval time between Ping checks. Defaults to 10
    - calculate_distance: false  # Calculate distance between devices, MQTT msg will contain RSSI & DIST fields. Defaults to false
    - mqtt_port: '1883'          # MQTT port, defaults to 1883
    - mqtt_user: ''              # '' for both User&Password means no security
@@ -94,6 +93,10 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
    - mqtt_topic: 'Presence'     # defaults to "Presence" resulting in mqtt topic: Presence/hostname-of-server/UUID-of-device
    - mqtt_domoticz_topic: 'domoticz/in' # defaults to domoticz/in when idx is provive in device table
    - mqtt_retain: false         # defaults to false
+   #### the next 3 will be the default for all devices, but can also be define within the ScanDevices device definition to override the default:
+   - dev_timeout: 120           # Time without BLE packets and failing pings to remort device to start checking with Ping. Defaults to 120
+   - ble_timeout: 20            # Time without BLE packet to start checking with Ping. Defaults to 20
+   - ping_interval: 10          # Interval time between Ping checks. Defaults to 10
    ```
 
 4. Example docker log when running this image the first time as it will copy the model config and pause untill you have updated it:
@@ -139,6 +142,8 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
             "name": "Name_hers", 
             "host": "192.168.1.11", 
             "idx": 2, 
+            "ble_timeout": "30",
+            "dev_timeout": "180",
             "target": "mqtt"
          }
       } 
