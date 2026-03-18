@@ -11,11 +11,12 @@ import paho.mqtt.publish as publish
 import os
 import json
 import subprocess
-from threading import Thread
+import threading
+
+stop_event = threading.Event()
 
 version = os.getenv('GIT_RELEASE', 'v1.0')
 config_file = './config/config.json'
-
 def formattednow():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S ")
 #time used as InitValue for Table and Loop test
@@ -26,6 +27,7 @@ initdate = datetime.datetime.now() - datetime.timedelta(seconds=8)
 def load_config(console=True):
     """Load configuration from JSON file """
     global config_file
+    global configfiledate
     config = {}
 
     # Try to load from config.json file first
@@ -33,6 +35,8 @@ def load_config(console=True):
         try:
             with open(config_file, 'r') as f:
                 config = json.load(f)
+
+            configfiledate = os.path.getmtime(config_file)
             if console: print(f"[INFO] Configuration loaded from {config_file}")
         except Exception as e:
             if console: print(f"[ERROR] Failed to load {config_file}: {e}")
@@ -254,7 +258,8 @@ def sendmqttmsg(topic, payload):
 def thread_backgroundprocess():
     ## inital delay this thread a bit to start the main process
     sleep(5)
-    while True:
+    cnt=0
+    while not stop_event.is_set():
         # Loop through devices records for:
         # - Ping when lastsuccess more than xx seconds and lastping test > xx seconds
         # - Timeout -> Switch Domo device/idx Off
@@ -265,7 +270,9 @@ def thread_backgroundprocess():
             #####################################################################
             # check ping in separate thread every 'ping_interval(10)' seconds when not updated for 'ble_timeout(20)' seconds by BLE
             if (urec["host"] != ""
-            and (datetime.datetime.now() - urec["tslaston"]).total_seconds() >= urec["ble_timeout"]
+            and (
+                (datetime.datetime.now() - urec["tslaston"]).total_seconds() >= urec["ble_timeout"]
+                    or urec["lasttype"] == "Ping" or urec["state"] is None)
             and (datetime.datetime.now() - urec["tslastpingcheck"]).total_seconds() >= urec["ping_interval"]) :
                 if (datetime.datetime.now() - urec["tslaston"]).total_seconds() >= urec["ble_timeout"]:
                     printlog(urec["name"] + " start ping ble_timeout " + str(urec["ble_timeout"]) + " <= " + str((datetime.datetime.now() - urec["tslaston"]).total_seconds()), 9)
@@ -273,7 +280,7 @@ def thread_backgroundprocess():
                     printlog(urec["name"] + " start ping ping_interval " + str(urec["ping_interval"]) +  " <= " + str((datetime.datetime.now() - urec["tslastpingcheck"]).total_seconds()), 9)
 
                 # Start ping thread
-                pworker = Thread(target=thread_pinger, args=(UUID,), daemon=True)
+                pworker = threading.Thread(target=thread_pinger, args=(UUID,), daemon=True)
                 pworker.start()
                 urec["tslastpingcheck"] = datetime.datetime.now()
 
@@ -289,7 +296,6 @@ def thread_backgroundprocess():
 
         sleep(1)
 
-
 # thread code : wraps system ping command
 def thread_pinger(UUID):
     # ping it
@@ -304,12 +310,15 @@ def thread_pinger(UUID):
                 printlog(urec["name"] + " changed to Ping UP")
             else:
                 printlog("<< " + urec["name"] + " Ping OK " + urec["host"], 3)
+            urec["lasttype"] = "Ping"
+            urec["state"] = True
+            urec["tslaston"] = datetime.datetime.now()
         else:
             printlog(urec["name"] + " changed to On -> Ping " + urec["host"])
+            urec["lasttype"] = "Ping"
+            urec["state"] = True
+            urec["tslaston"] = datetime.datetime.now()
             updatedevice("c", UUID, "On", "Ping")
-        urec["lasttype"] = "Ping"
-        urec["state"] = True
-        urec["tslaston"] = datetime.datetime.now()
 
     else:
         printlog("< Ping " + urec["name"] + " Failed. " + str(pingstate), 2)
@@ -318,101 +327,129 @@ def thread_pinger(UUID):
 
 
 
+def ble_ip_scanner():
+    ###################################################################################################
+    # Start of process that reads the hcidump output and scan for defined UUID.
+    ###################################################################################################
+    unknownUUIDs = {}
+    UUID_key = None
+    # Read stdin
+    p = sys.stdin.buffer
+    while not stop_event.is_set():
+        nline = p.readline()
+        if not nline:
+            break
+        try:
+            line = nline.decode('utf-8', 'ignore').lstrip()
+        except Exception:
+            line = str(nline).lstrip()
+        printlog(line, 9)
+        # b'> HCI Event: LE Meta Event (0x3e) plen 39                   #63 [hci0] 1.646593\n'
+        # b'LE Advertising Report (0x02)\n'
+        # b'Num reports: 1\n'
+        # b'Event type: Scannable undirected - ADV_SCAN_IND (0x02)\n'
+        # b'Address type: Random (0x01)\n'
+        # b'Address: 53:C0:8D:87:4D:48 (Resolvable)\n'
+        # b'Data length: 27\n'
+        # b'Company: Apple, Inc. (76)\n'
+        # b'Type: iBeacon (2)\n'
+        # b'UUID: a0aaa91b-91f4-f2ad-0f4a-6dcf5444232f\n'
+        # b'Version: 256.256\n'
+        # b'TX power: -59 dB\n'
+        # b'RSSI: -60 dBm (0xc4)\n'
+        # Check for UUID lines from btmod
 
-###################################################################################################
-# Start of process that reads the hcidump output and scan for defined UUID.
-###################################################################################################
-# Start background worker in its own thread
-bworker = Thread(target=thread_backgroundprocess, daemon=True)
-bworker.start()
+        if line.startswith("UUID:"):
+            UUID_key = line.split("UUID:")[1].strip()
+            # check if UUID exists in TelBLE dictionary
+            if UUID_key not in TelBLE:
+                if UUID_key not in unknownUUIDs:
+                    printlog("!> New UUID:%s found not in table." % (UUID_key), 1)
+                    unknownUUIDs[UUID_key] = 1
+                else:
+                    printlog("!> UUID:%s  Not in table." % (UUID_key), 3)
+                UUID_key = None
+                continue
 
-UUID_key = None
-# Read stdin
-p = sys.stdin.buffer
-while True:
-    nline = p.readline()
-    if not nline:
-        break
-    try:
-        line = nline.decode('utf-8', 'ignore').lstrip()
-    except Exception:
-        line = str(nline).lstrip()
-    printlog(line, 9)
-    # b'> HCI Event: LE Meta Event (0x3e) plen 39                   #63 [hci0] 1.646593\n'
-    # b'LE Advertising Report (0x02)\n'
-    # b'Num reports: 1\n'
-    # b'Event type: Scannable undirected - ADV_SCAN_IND (0x02)\n'
-    # b'Address type: Random (0x01)\n'
-    # b'Address: 53:C0:8D:87:4D:48 (Resolvable)\n'
-    # b'Data length: 27\n'
-    # b'Company: Apple, Inc. (76)\n'
-    # b'Type: iBeacon (2)\n'
-    # b'UUID: a0aaa91b-91f4-f2ad-0f4a-6dcf5444232f\n'
-    # b'Version: 256.256\n'
-    # b'TX power: -59 dB\n'
-    # b'RSSI: -60 dBm (0xc4)\n'
-    # Check for UUID lines from btmod
+            # Receive iBeacon for known device
+            if not TelBLE[UUID_key]["state"] or TelBLE[UUID_key]["state"] is None :
+                printlog(TelBLE[UUID_key]["name"] + " changed to On -> BLE. ")
+                TelBLE[UUID_key]["state"] = True
+                # Send this update immediately when device is processed
+                TelBLE[UUID_key]["sendmqtt"] = True
+            elif TelBLE[UUID_key]["lasttype"] != "BLE":
+                printlog(TelBLE[UUID_key]["name"] + " changed to BLE UP")
 
-    if line.startswith("UUID:"):
-        UUID_key = line.split("UUID:")[1].strip()
-        # check if UUID exists in TelBLE dictionary
-        if UUID_key not in TelBLE:
-            printlog("!> UUID:%s  Not in table." % (UUID_key), 3)
-            UUID_key = None
+            TelBLE[UUID_key]["tslaston"] = datetime.datetime.now()
+            TelBLE[UUID_key]["lasttype"] = "BLE"
             continue
 
-        # Receive iBeacon for known device
-        if not TelBLE[UUID_key]["state"] or TelBLE[UUID_key]["state"] is None :
-            printlog(TelBLE[UUID_key]["name"] + " changed to On -> BLE. ")
-            TelBLE[UUID_key]["state"] = True
-            # Send this update immediately when device is processed
-            TelBLE[UUID_key]["sendmqtt"] = True
-        elif TelBLE[UUID_key]["lasttype"] != "BLE":
-            printlog(TelBLE[UUID_key]["name"] + " changed to BLE UP")
+        # Get RSSI and TX Power info only when an known UUID is found
+        if not UUID_key:
+            continue
+        elif (not Calculate_Distance) or line.startswith(">"):
+            if UUID_key in TelBLE:
+                urec = TelBLE[UUID_key]
+                mDist = 0
+                if Calculate_Distance:
+                    mDist = measureDistance(urec["txpower"], urec["rssi"])
+                    # calculate the average mDist of the last 5 measurements
+                    urec["dist_measurements"].append(mDist)
+                    if len(urec["dist_measurements"]) > 5:
+                        urec["dist_measurements"].pop(0)
+                    urec["dist"] = round(sum(urec["dist_measurements"]) / len(urec["dist_measurements"]), 2)
+                else:
+                    urec["txpower"] = 0
+                    urec["rssi"] = 0
+                    urec["dist"] = 0
 
-        TelBLE[UUID_key]["tslaston"] = datetime.datetime.now()
-        TelBLE[UUID_key]["lasttype"] = "BLE"
-        continue
+                urec["tslaston"] = datetime.datetime.now()
+                if Calculate_Distance:
+                    printlog("-> UUID: %s -> %10s RSSI=%d TX=%d Dist=%.2f AVGDist=%.2f" % (UUID_key, urec["name"], urec["rssi"], urec["txpower"], mDist, urec["dist"]), 3)
+                else:
+                    printlog("-> UUID: %s -> %10s" % (UUID_key, urec["name"]), 3)
 
-    # Get RSSI and TX Power info only when an known UUID is found
-    if not UUID_key:
-        continue
-    elif (not Calculate_Distance) or line.startswith(">"):
-        if UUID_key in TelBLE:
-            urec = TelBLE[UUID_key]
-            mDist = 0
-            if Calculate_Distance:
-                mDist = measureDistance(urec["txpower"], urec["rssi"])
-                # calculate the average mDist of the last 5 measurements
-                urec["dist_measurements"].append(mDist)
-                if len(urec["dist_measurements"]) > 5:
-                    urec["dist_measurements"].pop(0)
-                urec["dist"] = round(sum(urec["dist_measurements"]) / len(urec["dist_measurements"]), 2)
-            else:
-                urec["txpower"] = 0
-                urec["rssi"] = 0
-                urec["dist"] = 0
-
-            urec["tslaston"] = datetime.datetime.now()
-            if Calculate_Distance:
-                printlog("-> UUID: %s -> %10s RSSI=%d TX=%d Dist=%.2f AVGDist=%.2f" % (UUID_key, urec["name"], urec["rssi"], urec["txpower"], mDist, urec["dist"]), 3)
-            else:
-                printlog("-> UUID: %s -> %10s" % (UUID_key, urec["name"]), 3)
-
-            if urec["sendmqtt"]:
-                ### Send state Update as it changed
-                updatedevice("c", UUID_key, "On", "BLE")
-                urec["sendmqtt"] = False
+                if urec["sendmqtt"]:
+                    ### Send state Update as it changed
+                    updatedevice("c", UUID_key, "On", "BLE")
+                    urec["sendmqtt"] = False
 
 
-        UUID_key = None
+            UUID_key = None
 
-    elif line.startswith("TX power:"):
-        TelBLE[UUID_key]["txpower"] = int(line.split("TX power:")[1].split("dB")[0].strip())
-        printlog("#### TX power:",9,str(TelBLE[UUID_key]))
+        elif line.startswith("TX power:"):
+            TelBLE[UUID_key]["txpower"] = int(line.split("TX power:")[1].split("dB")[0].strip())
+            printlog("#### TX power:",9,str(TelBLE[UUID_key]))
 
-    elif line.startswith("RSSI:"):
-        TelBLE[UUID_key]["rssi"] = int(line.split("RSSI:")[1].split("dBm")[0].strip())
-        printlog("#### RSSI:",9,str(TelBLE[UUID_key]))
-    else:
-        printlog("#### ????:",9,line)
+        elif line.startswith("RSSI:"):
+            TelBLE[UUID_key]["rssi"] = int(line.split("RSSI:")[1].split("dBm")[0].strip())
+            printlog("#### RSSI:",9,str(TelBLE[UUID_key]))
+        else:
+            printlog("#### ????:",9,line)
+
+
+
+def main():
+    # Start background worker in its own thread
+    bleworker = threading.Thread(target=ble_ip_scanner, daemon=True)
+    bleworker.start()
+    bworker = threading.Thread(target=thread_backgroundprocess, daemon=True)
+    bworker.start()
+    nconfigfiledate = configfiledate
+    rc = 1
+    print("Main running...")
+    while configfiledate == nconfigfiledate:
+        sleep(5)
+        nconfigfiledate = os.path.getmtime(config_file)
+        rc=99
+
+    printlog(" Config changed so end to restart.....", 0)
+    print("Main exiting cleanly")
+    stop_event.set()
+    bworker.join()
+    bleworker.join()
+    print("Exiting to restart")
+    sys.exit(rc)
+
+if __name__ == "__main__":
+    main()
