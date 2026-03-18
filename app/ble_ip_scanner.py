@@ -138,7 +138,7 @@ if ScanDevices:
                 'ble_timeout': int(meta.get('ble_timeout', ble_timeout)),
                 'ping_interval': int(meta.get('ping_interval', ping_interval)),
                 'dev_timeout': int(meta.get('dev_timeout', dev_timeout)),
-                'state': False,
+                'state': None,
                 'tslaston': initdate,
                 'tslastmqttupd': initdate,
                 'sendmqtt': False,
@@ -278,7 +278,7 @@ def thread_backgroundprocess():
                 urec["tslastpingcheck"] = datetime.datetime.now()
 
             # check for down when not updated for "dev_timeout" seconds
-            if ( urec["state"] and (datetime.datetime.now() - urec["tslaston"]).total_seconds() > urec["dev_timeout"]):
+            if ((urec["state"] is None or urec["state"]) and (datetime.datetime.now() - urec["tslaston"]).total_seconds() > urec["dev_timeout"]):
                 urec["state"] = False
                 printlog(urec["name"] + " Changed to Offline.")
                 updatedevice("c", UUID, "Off")
@@ -362,7 +362,7 @@ while True:
             continue
 
         # Receive iBeacon for known device
-        if not TelBLE[UUID_key]["state"]:
+        if not TelBLE[UUID_key]["state"] or TelBLE[UUID_key]["state"] is None :
             printlog(TelBLE[UUID_key]["name"] + " changed to On -> BLE. ")
             TelBLE[UUID_key]["state"] = True
             # Send this update immediately when device is processed
