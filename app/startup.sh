@@ -30,6 +30,7 @@ rm /startup.failed
 cp -n /app/config_model.json /app/config/config.json
 
 echo "-- hciconfig $dev up"
+hciconfig $dev down
 hciconfig $dev up
 
 echo "-- starting hcitool lescan"
