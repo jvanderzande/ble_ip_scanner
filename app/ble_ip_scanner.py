@@ -27,6 +27,8 @@ def formattednow():
 #time used as InitValue for Table and Loop test
 
 initdate = curtimeTS()
+save_state_timer = curtimeTS()
+
 
 ### Load Configuration from JSON ######################################
 def load_config(console=True):
@@ -254,6 +256,7 @@ def measureDistance(txPower, rssi):
         return round(((0.89976) * pow(ratio, 7.7095) + 0.111), 2)
 
 def updatedevice(action, UUID):
+    global save_state_timer
     urec = TelBLE[UUID]
     lasttype = urec['lasttype']
     dev_state = urec['dev_state'] if urec['dev_state'] == 'On' else 'Off'
@@ -294,12 +297,16 @@ def updatedevice(action, UUID):
             payload += ',"dist":' + str(urec['dist']) + ''
         payload += "}"
         sendmqttmsg(mqtttopic + "/" + pihost+"/" + str(urec['uuid']), payload, loglevel)
+    if action == "c":
+        save_statesave_file()
 
-    # save last status to file
-    save_statesave_file()
 
 
 def save_statesave_file():
+    global save_state_timer
+    if (curtimeTS() - save_state_timer) < 3:
+        return
+    save_state_timer = curtimeTS()
     statesave = {}
     for UUID in TelBLE.keys():
         statesave[UUID] = {
@@ -317,6 +324,7 @@ def save_statesave_file():
 
     with open(statesave_file, 'w') as f:
         json.dump(statesave, f, indent=2)
+    printlog(" Stats saved to: " + statesave_file, 4)
 
 def sendmqttmsg(topic, payload, loglevel=3):
     printlog(f"   > Publishing {payload} to topic: {topic}", loglevel)
@@ -431,18 +439,22 @@ def ble_ip_scanner():
 
 
 def main():
-
+    global save_state_timer
     # Start BLE background worker in its own thread
     bleworker = threading.Thread(target=ble_ip_scanner, daemon=True)
     bleworker.start()
 
-    ## inital delay this thread a bit to start the main process
-    sleep(5)
+    ## inital delay this thread a bit to start the BLE process
+    sleep(2)
     nconfigfiledate = configfiledate
     rc = 1
     print("Main running...")
 
     while True:
+        # save last status every 5 minutes
+        if (curtimeTS() - save_state_timer) > 300:
+            save_statesave_file()
+
         # Check if config changed
         nconfigfiledate = os.path.getmtime(config_file)
         if not configfiledate == nconfigfiledate:
@@ -523,6 +535,9 @@ def main():
 
     stop_event.set()
     bleworker.join()
+    # save last status to file
+    save_statesave_file()
+    #
     print("Exiting to restart")
     sys.exit(rc)
 
