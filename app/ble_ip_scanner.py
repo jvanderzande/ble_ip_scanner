@@ -20,7 +20,7 @@ config_file = './config/config.json'
 def formattednow():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S ")
 #time used as InitValue for Table and Loop test
-initdate = datetime.datetime.now() - datetime.timedelta(seconds=300)
+initdate = datetime.datetime.now()
 
 ### Load Configuration from JSON ######################################
 def load_config(console=True):
@@ -62,7 +62,7 @@ firstrun = os.getenv('firstrun', 'n') == 'y'
 loglevel = 1
 log2file = True
 if firstrun or config.get('mqtt_ip', '192.168.1.0') == '192.168.1.0':
-    printlog(formattednow() + '[0]' + f"{version} Initial startup: retrying every 5 seconds until config.json is updated with required parameters.",0,'',True)
+    printlog(f"{version} Initial startup: retrying every 5 seconds until config.json is updated with required parameters.",0,'',True)
     while config.get('mqtt_ip', '192.168.1.0') == '192.168.1.0':
         config = load_config(False)
         sleep(5)
@@ -148,8 +148,8 @@ if ScanDevices:
                 'ble_state': '',
                 'ble_last_ts': initdate,
                 'ping_state': '',
-                'ping_last_ts': initdate,
-                'ping_check_ts': initdate,
+                'ping_last_ts': initdate - datetime.timedelta(seconds=ping_interval),
+                'ping_check_ts': initdate - datetime.timedelta(seconds=ping_interval),
                 'lasttype': '',
                 'mqtt_lastupd_ts': initdate,
                 'host': meta.get('host', ''),
@@ -202,23 +202,25 @@ def measureDistance(txPower, rssi):
 
 def updatedevice(action, UUID):
     urec = TelBLE[UUID]
-    State = urec["dev_state"] if urec["dev_state"] == 'On' else 'Off'
-    LastType = urec["lasttype"]
+    lasttype = urec['lasttype']
+    dev_state = urec['dev_state'] if urec['dev_state'] == 'On' else 'Off'
     # Set last Changed Type when dev_state is changed
     loglevel = 3
     if action == "u":
         loglevel = 4
-    printlog(" -> updatedevice:" + (" Changed" if action == "c" else "Lifeline") + ": "+ urec["target"] + " " + urec["name"] + " State:" + State + " LastType:" + LastType, loglevel)
+        printlog(f" -> updatedevice-Lifeline: {urec['target']} {urec['name']} dev_state:{dev_state} lasttype:{lasttype}", loglevel)
+    else:
+        printlog(f" -> updatedevice-Changed: {urec['target']} {urec['name']} dev_state:{dev_state} lasttype:{lasttype}", loglevel)
 
-    urec["mqtt_lastupd_ts"] = datetime.datetime.now()
+    urec['mqtt_lastupd_ts'] = datetime.datetime.now()
 
-    if urec["target"] == "domoticz" and urec["idx"] > 0:
+    if urec['target'] == "domoticz" and urec['idx'] > 0:
         # Send to MQTT to Domoticz
         ## Only send Changes to Domoticz
         payload = ('{'
             + '"command": "switchlight"'
-            + ',"idx":' + str(urec["idx"])
-            + ',"switchcmd": "' + State + '"'
+            + ',"idx":' + str(urec['idx'])
+            + ',"switchcmd": "' + dev_state + '"'
         )
         # No Event trigger on Lifeline update
         if action == "u":
@@ -229,19 +231,19 @@ def updatedevice(action, UUID):
         # Send to MQTT to to defined topic
         payload = ('{'
             + '"action":"' + action + '"'
-            + ',"name":"' + urec["name"] + '"'
-            + ',"idx":"' + str(urec["idx"]) + '"'
-            + ',"type":"' + LastType + '"'
-            + ',"dev_state":"' + State + '"'
+            + ',"name":"' + urec['name'] + '"'
+            + ',"idx":"' + str(urec['idx']) + '"'
+            + ',"type":"' + lasttype + '"'
+            + ',"dev_state":"' + dev_state + '"'
         )
         if Calculate_Distance:
-            payload += ',"rssi":' + str(urec["rssi"]) + ''
-            payload += ',"dist":' + str(urec["dist"]) + ''
+            payload += ',"rssi":' + str(urec['rssi']) + ''
+            payload += ',"dist":' + str(urec['dist']) + ''
         payload += "}"
-        sendmqttmsg(mqtttopic + "/" + pihost+"/" + str(urec["uuid"]), payload, loglevel)
+        sendmqttmsg(mqtttopic + "/" + pihost+"/" + str(urec['uuid']), payload, loglevel)
 
 def sendmqttmsg(topic, payload, loglevel=3):
-    printlog("   > Publishing " + str(payload) + " to topic: " + topic, loglevel)
+    printlog(f"   > Publishing {payload} to topic: {topic}", loglevel)
     try:
         auth = None
         if mqtt_user or mqtt_password:
@@ -250,22 +252,21 @@ def sendmqttmsg(topic, payload, loglevel=3):
             topic, payload, 0, retain=mqttretain, hostname=MQTT_IP, port=MQTT_IP_port, auth=auth
         )
     except Exception as e:
-        printlog("   ! Publishing " + str(payload) + " to topic: " + topic + " ERROR: " + str(e), 0, '', True)
+        printlog(f"   ! Publishing {payload} to topic: {topic}  ERROR: {e}", 0, '', True)
 
 # thread code : wraps system ping command
 def thread_pinger(UUID):
     # ping it
     urec = TelBLE[UUID]
-    printlog("  > Ping start " + urec["name"] + " check: " + urec["host"] + " current ping_state:" + urec["ping_state"], 4)
-    ping_result = subprocess.call("ping -q -c 2 -W 2 " + urec["host"] + " > /dev/null 2>/dev/null", shell=True)
+    printlog(f"  > Ping {urec['name']} check: {urec['host']} current ping_state: {urec['ping_state']}", 4)
+    ping_result = subprocess.call("ping -q -c 2 -W 2 " + urec['host'] + " > /dev/null 2>/dev/null", shell=True)
     if ping_result == 0:
-        printlog("  < Ping ok " + urec["name"], 4)
-        urec["ping_state"] = 'On'
-        urec["ping_last_ts"] = datetime.datetime.now()
+        printlog(f"  < Ping {urec['name']} ok" , 4)
+        urec['ping_state'] = 'On'
+        urec['ping_last_ts'] = datetime.datetime.now()
     else:
-        printlog("  < Ping " + urec["name"] + " Failed. " + str(ping_result), 4)
-        urec["ping_state"] = 'Off'
-
+        printlog(f"  < Ping {urec['name']} Failed. {ping_result}", 4)
+        urec['ping_state'] = 'Off'
 
 
 def ble_ip_scanner():
@@ -331,13 +332,13 @@ def ble_ip_scanner():
             if UUID_key in TelBLE:
                 urec = TelBLE[UUID_key]
                 mDist = 0
-                mDist = measureDistance(urec["txpower"], urec["rssi"])
+                mDist = measureDistance(urec['txpower'], urec['rssi'])
                 # calculate the average mDist of the last 5 measurements
-                urec["dist_measurements"].append(mDist)
-                if len(urec["dist_measurements"]) > 5:
-                    urec["dist_measurements"].pop(0)
-                urec["dist"] = round(sum(urec["dist_measurements"]) / len(urec["dist_measurements"]), 2)
-                printlog("  > BLE %10s RSSI=%d TX=%d Dist=%.2f AVGDist=%.2f" % (urec["name"], urec["rssi"], urec["txpower"], mDist, urec["dist"]), 4)
+                urec['dist_measurements'].append(mDist)
+                if len(urec['dist_measurements']) > 5:
+                    urec['dist_measurements'].pop(0)
+                urec['dist'] = round(sum(urec['dist_measurements']) / len(urec['dist_measurements']), 2)
+                printlog("  > BLE %10s RSSI=%d TX=%d Dist=%.2f AVGDist=%.2f" % (urec['name'], urec['rssi'], urec['txpower'], mDist, urec['dist']), 4)
             UUID_key = None
 
         elif line.startswith("TX power:"):
@@ -375,74 +376,71 @@ def main():
         # Loop through devices records for:
         for UUID in TelBLE.keys():
             urec = TelBLE[UUID]
-            cstate = urec["dev_state"]
-            nstate = urec["dev_state"]
-            clasttype = urec["lasttype"]
-            lasttype = urec["lasttype"]
+            cstate = urec['dev_state']
+            nstate = urec['dev_state']
+            clasttype = urec['lasttype']
+            lasttype = urec['lasttype']
             ############################################
             # determine current dev_state
-            if urec["ble_state"] == 'On' and (datetime.datetime.now() - urec["ble_last_ts"]).total_seconds() < urec["ble_timeout"]:
+            # check DEV_State expired
+            if urec['ble_state'] == 'On' and (datetime.datetime.now() - urec['ble_last_ts']).total_seconds() < urec['ble_timeout']:
                 lasttype = "BLE"
                 nstate = 'On'
-            elif urec["ping_state"] == 'On' and (datetime.datetime.now() - urec["ping_last_ts"]).total_seconds() < urec["dev_timeout"]:
+            elif urec['ping_state'] == 'On' and (datetime.datetime.now() - urec['ping_last_ts']).total_seconds() < urec['dev_timeout']:
                 lasttype = "Ping"
                 nstate = 'On'
             else:
                 nstate = 'Off'
+            printlog(f"=> cstate:{cstate}  nstate:{nstate}  lasttype:{lasttype} > Name:{urec['name']}  dev_state:{urec['dev_state']}  lasttype:{urec['lasttype']}", 9)
 
             ############################################
             # Check for dev_state changes
-            if nstate == 'Off' and cstate == 'On' and (datetime.datetime.now() - urec["dev_last_ts"]).total_seconds() > urec["dev_timeout"]:
-                urec["dev_state"] = 'Off'
-                urec["ping_state"] = 'Off'
-                urec["ble_state"] = 'Off'
-                urec["dev_last_ts"] = datetime.datetime.now()
-                urec["lasttype"] = lasttype
-                printlog("=> Changed: "+ urec["target"] + " " + urec["name"] + " State:" + nstate + "  LastType:" + lasttype, 2)
+            if nstate == 'Off' and (cstate == 'On'  or cstate == '') and (datetime.datetime.now() - urec['dev_last_ts']).total_seconds() > urec['dev_timeout']:
+                urec['dev_state'] = 'Off'
+                urec['ping_state'] = 'Off'
+                urec['ble_state'] = 'Off'
+                urec['dev_last_ts'] = datetime.datetime.now()
+                urec['lasttype'] = lasttype
+                if cstate == '':
+                    printlog(f"=> Initial: {urec['target']} {urec['name']}->dev_state:{nstate}  lasttype:{lasttype}", 1)
+                else:
+                    printlog(f"=> Changed: {urec['target']} {urec['name']}->dev_state:{nstate}  lasttype:{lasttype}", 1)
                 updatedevice("c", UUID)
             if nstate == 'On' and cstate != nstate:
-                urec["dev_state"] = 'On'
-                urec["dev_last_ts"] = datetime.datetime.now()
-                urec["lasttype"] = lasttype
+                urec['dev_state'] = 'On'
+                urec['dev_last_ts'] = datetime.datetime.now()
+                urec['lasttype'] = lasttype
                 if cstate == '':
-                    printlog("=> Initial: Notify "+ urec["target"] + " " + urec["name"] + " State:" + nstate + "  LastType:" + lasttype, 2)
-                    updatedevice("c", UUID)
+                    printlog(f"=> Initial: Notify {urec['target']} {urec['name']}->dev_state:{nstate}  lasttype:{lasttype}", 1)
                 else:
-                    printlog("=> Changed: Notify "+ urec["target"] + " " + urec["name"] + " State:" + nstate + "  LastType:" + lasttype, 2)
-            elif nstate == 'On'  and lasttype != urec["lasttype"]:
-                printlog(" > Changed: " + urec["name"] + " detection to " + lasttype, 2)
-                urec["lasttype"] = lasttype
+                    printlog(f"=> Changed: Notify {urec['target']} {urec['name']}->dev_state:{nstate}  lasttype:{lasttype}", 1)
+                updatedevice("c", UUID)
+            elif nstate == 'On'  and lasttype != urec['lasttype']:
+                printlog(f" > Changed:{urec['name']} detection to {lasttype}", 2)
+                urec['lasttype'] = lasttype
 
             if nstate == 'On' :
-                urec["dev_last_ts"] = datetime.datetime.now()
+                urec['dev_last_ts'] = datetime.datetime.now()
 
             #check BLE_State expired
-            if urec["ble_state"] == 'On' and (datetime.datetime.now() - urec["ble_last_ts"]).total_seconds() > urec["ble_timeout"]:
-                urec["ble_state"] = 'Off'
-
-            #check DEV_State expired
-            if urec["dev_state"] == 'On' and (datetime.datetime.now() - urec["dev_last_ts"]).total_seconds() > urec["dev_timeout"]:
-                urec["dev_state"] = 'Off'
-                urec["ping_state"] = 'Off'
-                urec["ble_state"] = 'Off'
-                printlog("!!> " + urec["name"] + " dev_timeout !", 3)
-
+            if urec['ble_state'] == 'On' and (datetime.datetime.now() - urec['ble_last_ts']).total_seconds() > urec['ble_timeout']:
+                urec['ble_state'] = 'Off'
 
             # Start ping check when BLE is not active and last ping more than ping_interval seconds
-            if (urec["host"] != ""
-            and (urec["ble_state"] == 'Off' or urec["ble_state"] == '')
-            and (datetime.datetime.now() - urec["ping_check_ts"]).total_seconds() >= urec["ping_interval"]
+            if (urec['host'] != ""
+            and (urec['ble_state'] == 'Off' or urec['ble_state'] == '')
+            and (datetime.datetime.now() - urec['ping_check_ts']).total_seconds() >= urec['ping_interval']
             ) :
                 if clasttype == "BLE":
-                    printlog(f" -> BLE timeout, Start Pinging {urec["name"]}  ping_interval {urec["ping_interval"]} <= {(datetime.datetime.now() - urec["ping_check_ts"]).total_seconds():.0f}  BLE Last:{(datetime.datetime.now() - urec["ble_last_ts"]).total_seconds():.0f}", 3)
-                urec["ping_check_ts"] = datetime.datetime.now()
+                    printlog(f" -> BLE timeout, Start Pinging {urec['name']}  ping_interval {urec['ping_interval']} <= {(datetime.datetime.now() - urec['ping_check_ts']).total_seconds():.0f}  BLE Last:{(datetime.datetime.now() - urec['ble_last_ts']).total_seconds():.0f}", 3)
+                urec['ping_check_ts'] = datetime.datetime.now()
                 # Start ping thread
                 pingworker = threading.Thread(target=thread_pinger, args=(UUID,), daemon=True)
                 pingworker.start()
 
-        # send update each minute as lifeline to mqtt
-        if urec["dev_state"] != '' and (datetime.datetime.now() - urec["mqtt_lastupd_ts"]).total_seconds() > 58:
-            updatedevice("u", UUID)
+            # send update each minute as lifeline to mqtt
+            if urec['dev_state'] != '' and (datetime.datetime.now() - urec['mqtt_lastupd_ts']).total_seconds() > 58:
+                updatedevice("u", UUID)
 
         sleep(1)
 
