@@ -522,6 +522,7 @@ def main():
             ) :
                 if clasttype == "BLE":
                     printlog(f" -> BLE timeout, Start Pinging {urec['name']}  ping_interval {urec['ping_interval']} <= {(curtimeTS() - urec['ping_check_ts']):.0f}  BLE Last:{(curtimeTS() - urec['ble_last_ts']):.0f}", 3)
+                    urec['lasttype'] = "Ping"
                 urec['ping_check_ts'] = curtimeTS()
                 # Start ping thread
                 pingworker = threading.Thread(target=thread_pinger, args=(UUID,), daemon=True)
