@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 ### Desc ####################################################################################################
-# This script will read the raw info from hcidump to determine the presence of BLE devices (phones) and
+# This script will read the raw info from hcitool to determine the presence of BLE devices (phones) and
 # check for IP addresses by pinging them to determine if they are "home".
 # Send mqtt messages so that can be handled by Nodered or update a dummy switch in Domoticz.
 #############################################################################################################
@@ -356,7 +356,7 @@ def thread_pinger(UUID):
 
 def ble_ip_scanner():
     ###################################################################################################
-    # Start of process that reads the hcidump output and scan for defined UUID.
+    # Start of process that reads the hcitool output and scan for defined UUID.
     ###################################################################################################
     unknownUUIDs = {}
     UUID_key = None
