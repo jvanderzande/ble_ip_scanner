@@ -113,7 +113,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
    2026-02-18 15:00:52 [0] v1.0.0 Initial startup: retrying every 5 seconds until config.json is updated.
    ```
 
-5. When you save the config.json file, the python scanning script will continue:
+5. When you save the config.json file, the python script will detect the change and load the config changes:
 
    ``` log
    ##### Startup script ########################################################################################

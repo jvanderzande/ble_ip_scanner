@@ -30,8 +30,8 @@ mkdir /home/pi/presence/app/config
 mkdir /home/pi/presence/app/log
 
 ## added crontab entries
-@reboot /bin/bash /home/pi/presence/host_startup.sh >> /var/log/presence_start.log
-*/2 * * * * /bin/bash /home/pi/presence/host_startup.sh >> /var/log/presence_start.log
+@reboot /bin/bash /home/pi/presence/host_startup.sh >> /home/pi/presence/app/log/presence_start.log
+*/2 * * * * /bin/bash /home/pi/presence/host_startup.sh >> /home/pi/presence/app/log/presence_start.log
 
 ## fix timezone
 sudo timedatectl set-timezone "Europe/Rome"

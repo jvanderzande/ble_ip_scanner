@@ -4,6 +4,13 @@
 #### list all: ps -fp $(fuser /tmp/presence.lock 2>/dev/null)
 #### Kill all:fuser -k -9 /tmp/presence.lock
 
+## Check if scanner is running, else kill all other to restart the process
+if ! pgrep -f "ble_ip_scanner.py" > /dev/null; then
+    echo "### ble_ip_scanner.py is NOT running ...  reset running tasks"
+    sudo pkill --signal SIGINT btmon
+    sudo pkill --signal SIGINT hcitool
+fi
+
 exec 9>/tmp/presence.lock
 if ! flock -n 9; then
     # echo "Script already running. Exiting..."
@@ -23,9 +30,6 @@ sudo service bluetooth restart
 if [ ! -f /tmp/startup.failed ]; then
    cp ./log/ble_ip_scanner.log ./log/ble_ip_scanner_prev.log >/dev/null 2>&1
    rm ./log/ble_ip_scanner.log >/dev/null 2>&1
-fi
-if [ -z "$hci_device" ]; then
-    set hci_device="hci0"
 fi
 
 # Detect available HCI devices
@@ -52,6 +56,7 @@ hciconfig $dev up
 
 echo "-- starting hcitool lescan"
 hcitool lescan --duplicates --passive 1>/dev/null &
+export hci_device="$dev"
 
 while true; do
     stdbuf -oL btmon | python3 -u ble_ip_scanner.py
