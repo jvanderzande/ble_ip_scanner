@@ -12,31 +12,35 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
       1. Select **transmit** and add an new tranmitter, option **iBeacon** and save the it with default UUID.
       2. Edit the created tramsmitter, update the UUID to what you want it to be and activate/save the transmitter.
    2. Install an iBeacon app on your IPHone.
-      1. .....
+      1. ????
 
-2. Create a new Stack in portainer using the **docker_compose.yaml*** model,
-   and update **volumes** to the path where you want the Config and Log directories and start the stack.
-   This will create the required config.json file as shown at item 4.
+1.
+   - **Docker install:**  
+      Create a new Stack in portainer using the **docker_compose.yaml*** model,
+      and update **volumes** to the path where you want the Config and Log directories and start the stack.
+      This will create the required config.json file as shown at item 4.
 
-   ``` yaml
-   services:
-   ble_ip_scanner:
-      image: jvdzande/ble_ip_scanner:latest
-      container_name: ble_ip_scanner
-      network_mode: host
-      privileged: true
-      restart: unless-stopped
+      ``` yaml
+      services:
+      ble_ip_scanner:
+         image: jvdzande/ble_ip_scanner:latest
+         container_name: ble_ip_scanner
+         network_mode: host
+         privileged: true
+         restart: unless-stopped
 
-      environment:
-         TZ: 'Europe/Amsterdam'
-         #hci_device: 'hci0'       # default: hci0
+         environment:
+            TZ: 'Europe/Amsterdam'
+            #hci_device: 'hci0'       # default: hci0
 
-      volumes:
-         - /your-path/presence/app/config:/app/config
-         - /your-path/presence/app/log:/app/log
-   ```
+         volumes:
+            - /your-path/presence/app/config:/app/config
+            - /your-path/presence/app/log:/app/log
+      ```
 
-3. Open and change/adapt the settings to your setup in configfile:***/your-path/presence*/app/config/config.json**.
+   - **Host install**: [instructions.](HOSTINSTALL.md)
+
+1. Open and change/adapt the settings to your setup in configfile:***/your-path/presence*/app/config/config.json**.
    1. Example json config file:
 
    ``` json
@@ -99,7 +103,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
    - ping_interval: 10          # Interval time between Ping checks. Defaults to 10
    ```
 
-4. Example docker log when running this image the first time as it will copy the model config and pause untill you have updated it:
+2. Example docker log when running this image the first time as it will copy the model config and pause untill you have updated it:
 
    ``` log
    ##### Startup script ########################################################################################
@@ -113,7 +117,7 @@ Detection states are sent via MQTT to a predefined topic for use in Node-RED or 
    2026-02-18 15:00:52 [0] v1.0.0 Initial startup: retrying every 5 seconds until config.json is updated.
    ```
 
-5. When you save the config.json file, the python script will detect the change and load the config changes:
+3. When you save the config.json file, the python script will detect the change and load the config changes:
 
    ``` log
    ##### Startup script ########################################################################################
